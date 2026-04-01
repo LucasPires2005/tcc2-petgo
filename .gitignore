@@ -53,3 +53,5 @@ uploads/
 
 # Se você criou o arquivo .env para o Token do Ngrok
 .env
+
+#
