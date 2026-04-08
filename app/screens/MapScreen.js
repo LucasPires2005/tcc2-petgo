@@ -1,23 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Alert,
-  Modal,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import React, { useEffect, useState, useContext } from 'react';
+import { View, StyleSheet, Alert, Modal, Text, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { AuthContext } from '../context/AuthContext';
 
 export default function MapScreen() {
+  const { user } = useContext(AuthContext); // ESSENCIAL para salvar
   const [location, setLocation] = useState(null);
   const [animals, setAnimals] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -50,34 +40,31 @@ export default function MapScreen() {
 
   async function fetchAnimals() {
     try {
-      const res = await fetch(API_URL, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      const res = await fetch(API_URL, { headers: { 'ngrok-skip-browser-warning': 'true' } });
       const data = await res.json();
       setAnimals(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setAnimals([]);
-    }
+    } catch (e) { setAnimals([]); }
   }
 
-  // MUDANÇA AQUI: Agora a função é para clique LONGO
   function handleLongPress(event) {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
-    // Removi o Alert daqui para não interromper o usuário, o botão azul já indica que pode salvar
   }
 
   async function pickImage() {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'], // CORREÇÃO DO AVISO AQUI
       allowsEditing: true,
-      quality: 1,
+      quality: 0.5,
     });
     if (!result.canceled) setImage(result.assets[0].uri);
   }
 
   async function saveAnimal() {
-    if (!selectedLocation || !species || !health) return Alert.alert('Atenção', 'Preencha os campos obrigatórios');
+    console.log("🚀 Iniciando salvamento...");
+    if (!selectedLocation || !species || !health) {
+      return Alert.alert('Atenção', 'Marque o local no mapa (segurando o dedo) e preencha Espécie/Saúde.');
+    }
 
     const formData = new FormData();
     formData.append('name', name || "Sem nome");
@@ -86,6 +73,7 @@ export default function MapScreen() {
     formData.append('health', health);
     formData.append('latitude', selectedLocation.latitude.toString());
     formData.append('longitude', selectedLocation.longitude.toString());
+    formData.append('userId', user?.id); // Vínculo com você
 
     if (image) {
       const filename = image.split('/').pop();
@@ -106,9 +94,14 @@ export default function MapScreen() {
         setModalVisible(false);
         setName(''); setSpecies(''); setBreed(''); setHealth(''); setImage(null); setSelectedLocation(null);
         fetchAnimals();
+      } else {
+        const errorData = await res.json();
+        console.log("❌ Erro do servidor:", errorData);
+        Alert.alert('Erro', 'O servidor recusou o cadastro.');
       }
-    } catch (error) { 
-      Alert.alert('Erro', 'Falha ao conectar com o servidor'); 
+    } catch (error) {
+      console.log("❌ Erro na requisição:", error);
+      Alert.alert('Erro', 'Falha ao conectar. O Ngrok está ligado?');
     }
   }
 
@@ -117,13 +110,9 @@ export default function MapScreen() {
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({ rescuer_name: rescuerName, rescuer_contact: rescuerContact }),
       });
-
       if (res.ok) {
         setRescueModalVisible(false);
         setRescuerName(''); setRescuerContact('');
@@ -145,19 +134,14 @@ export default function MapScreen() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}
-        // MUDANÇA AQUI: Trocamos onPress por onLongPress
         onLongPress={handleLongPress}
       >
         <Marker coordinate={location}>
           <View style={styles.userMarker}><Ionicons name="person" size={20} color="#FFF" /></View>
         </Marker>
 
-        {Array.isArray(animals) && animals.map((animal) => (
-          <Marker 
-            key={animal.id} 
-            coordinate={{ latitude: animal.latitude, longitude: animal.longitude }}
-            //stopPropagation={true} // Garante que o clique na patinha não ative o mapa atrás
-          >
+        {animals.map((animal) => (
+          <Marker key={animal.id} coordinate={{ latitude: animal.latitude, longitude: animal.longitude }}>
             <View style={[styles.petMarker, { backgroundColor: animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' }]}>
               <Ionicons name="paw" size={16} color="#FFF" />
             </View>
@@ -171,7 +155,6 @@ export default function MapScreen() {
           </Marker>
         ))}
 
-        {/* PIN VERDE: Só aparece quando você SEGURA no mapa */}
         {selectedLocation && (
           <Marker coordinate={selectedLocation}>
             <Ionicons name="location" size={40} color="#2ECC71" />
@@ -179,32 +162,23 @@ export default function MapScreen() {
         )}
       </MapView>
 
-      {/* Botão flutuante que muda de cor se houver local selecionado */}
       <TouchableOpacity 
         style={[styles.addButton, { backgroundColor: selectedLocation ? '#2ECC71' : '#4A90E2' }]} 
         onPress={() => {
-            if (selectedLocation) {
-                setModalVisible(true);
-            } else {
-                Alert.alert('Como adicionar', 'Segure o dedo no mapa por 1 segundo para marcar o local do animal.');
-            }
+            if (selectedLocation) setModalVisible(true);
+            else Alert.alert('Dica', 'Segure o dedo no mapa para marcar o local primeiro.');
         }}
       >
-        <Text style={styles.addButtonText}>
-            {selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}
-        </Text>
+        <Text style={styles.addButtonText}>{selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}</Text>
       </TouchableOpacity>
 
-      {/* MODAL NOVO ANIMAL */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContent}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>Novo Registro 🐾</Text>
-              
               <Text style={styles.label}>Nome:</Text>
               <TextInput placeholder="Ex: Totó..." placeholderTextColor="#999" value={name} onChangeText={setName} style={styles.input} />
-              
               <Text style={styles.label}>Espécie:</Text>
               <View style={styles.row}>
                 <TouchableOpacity style={[styles.tag, species === 'Cachorro' && styles.tagSelected]} onPress={() => setSpecies('Cachorro')}>
@@ -214,14 +188,11 @@ export default function MapScreen() {
                   <Text style={[styles.tagText, species === 'Gato' && styles.tagTextSelected]}>🐱 Gato</Text>
                 </TouchableOpacity>
               </View>
-
               <TextInput placeholder="Raça..." placeholderTextColor="#999" value={breed} onChangeText={setBreed} style={styles.input} />
-              <TextInput placeholder="Saúde..." placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
-
+              <TextInput placeholder="Saúde (Ex: Ferido, faminto...)" placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
               <TouchableOpacity onPress={pickImage} style={styles.imagePickerBtn}>
                 {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <Text style={styles.imagePickerText}>📸 Selecionar Foto</Text>}
               </TouchableOpacity>
-
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.cancelButton} onPress={() => { setModalVisible(false); setSelectedLocation(null); }}>
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
@@ -235,14 +206,10 @@ export default function MapScreen() {
         </View>
       </Modal>
 
-      {/* MODAL RESGATE */}
       <Modal visible={rescueModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.rescueModal}>
             <Text style={styles.modalTitle}>Resgatar Animal ❤️</Text>
-            <Text style={{textAlign: 'center', color: '#666', marginBottom: 15}}>
-              Você está se comprometendo a resgatar o(a) {selectedAnimal?.name}.
-            </Text>
             <TextInput placeholder="Seu Nome" style={styles.input} value={rescuerName} onChangeText={setRescuerName} />
             <TextInput placeholder="Seu WhatsApp" style={styles.input} keyboardType="phone-pad" value={rescuerContact} onChangeText={setRescuerContact} />
             <TouchableOpacity style={styles.confirmRescueBtn} onPress={handleRescue}><Text style={styles.saveButtonText}>Confirmar</Text></TouchableOpacity>
