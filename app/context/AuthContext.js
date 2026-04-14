@@ -5,86 +5,112 @@ export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev/auth';
+  const [animals, setAnimals] = useState([]);
+  
+  const BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
 
+  // BUSCA GLOBAL DE ANIMAIS
+  async function fetchAnimals() {
+    try {
+      const res = await fetch(`${BASE_URL}/animals`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const data = await res.json();
+      setAnimals(Array.isArray(data) ? data : []);
+    } catch (e) { console.log("Erro de sincronização"); }
+  }
+
+  // ATUALIZA MOEDAS E STATUS
+  async function refreshUserData() {
+    if (!user) return;
+    try {
+      const res = await fetch(`${BASE_URL}/auth/update-status/${user.id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const data = await res.json();
+      if (res.ok) setUser(data);
+    } catch (e) { console.log("Erro nas moedas"); }
+  }
+
+  // LOGIN
   async function login(email, password) {
     try {
-      const response = await fetch(`${BASE_URL}/login`, {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await response.json();
-      if (response.ok) setUser(data);
-      else Alert.alert('Erro', data.error || 'Credenciais inválidas');
+      const data = await res.json();
+      if (res.ok) { 
+        setUser(data); 
+        fetchAnimals(); 
+      } else {
+        Alert.alert('Erro', data.error || 'Falha no login');
+      }
     } catch (error) { Alert.alert('Erro', 'Conexão falhou.'); }
   }
 
+  // CADASTRO (O QUE ESTAVA FALTANDO!)
   async function register(name, email, password) {
     try {
-      const response = await fetch(`${BASE_URL}/register`, {
+      const response = await fetch(`${BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });
+      
+      const data = await response.json();
+      
       if (response.ok) {
-        Alert.alert('Sucesso', 'Conta criada!');
-        return true;
+        Alert.alert('Sucesso', 'Conta criada com sucesso! Agora faça seu login.');
+        return true; // Retorna true para a tela saber que deu certo
       } else {
-        const data = await response.json();
-        Alert.alert('Erro', data.error);
+        Alert.alert('Erro', data.error || 'Não foi possível cadastrar');
         return false;
       }
-    } catch (error) { Alert.alert('Erro', 'Servidor offline.'); return false; }
+    } catch (error) {
+      Alert.alert('Erro', 'Servidor offline ou erro de rede.');
+      return false;
+    }
   }
 
+  // ATUALIZAR CONTA
   async function updateAccount(newName, newEmail) {
     try {
-      const response = await fetch(`${BASE_URL}/update`, {
+      const res = await fetch(`${BASE_URL}/auth/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, name: newName, email: newEmail }),
       });
-      if (response.ok) {
-        setUser({ ...user, name: newName, email: newEmail });
-        Alert.alert('Sucesso', 'Dados atualizados!');
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data);
+        Alert.alert("Sucesso", "Perfil atualizado!");
         return true;
       }
-    } catch (e) { Alert.alert('Erro', 'Falha ao atualizar'); }
-    return false;
+    } catch (e) { return false; }
   }
 
-  // NOVA FUNÇÃO
+  // MUDAR SENHA
   async function changePassword(currentPassword, newPassword) {
     try {
-      const response = await fetch(`${BASE_URL}/change-password`, {
+      const res = await fetch(`${BASE_URL}/auth/change-password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, currentPassword, newPassword }),
       });
-      const data = await response.json();
-      if (response.ok) {
-        Alert.alert('Sucesso', 'Senha alterada!');
-        return true;
-      } else {
-        Alert.alert('Erro', data.error || 'Senha atual incorreta');
-        return false;
+      if (res.ok) { 
+        Alert.alert('Sucesso', 'Senha alterada!'); 
+        return true; 
+      } else { 
+        Alert.alert('Erro', 'Senha atual incorreta'); 
+        return false; 
       }
-    } catch (e) { Alert.alert('Erro', 'Falha na conexão'); return false; }
-  }
-
-  async function deleteAccount() {
-    try {
-      const response = await fetch(`${BASE_URL}/delete/${user.id}`, { method: 'DELETE' });
-      if (response.ok) {
-        setUser(null);
-        Alert.alert('Conta Excluída', 'Até logo! 🐾');
-      }
-    } catch (e) { Alert.alert('Erro', 'Falha ao excluir'); }
+    } catch (e) { return false; }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout: () => setUser(null), updateAccount, deleteAccount, changePassword }}>
+    <AuthContext.Provider value={{ 
+      user, setUser, animals, fetchAnimals, refreshUserData, 
+      login, register, updateAccount, changePassword,
+      logout: () => setUser(null)
+    }}>
       {children}
     </AuthContext.Provider>
   );
