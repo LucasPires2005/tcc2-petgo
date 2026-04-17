@@ -16,23 +16,22 @@ export default function MapScreen() {
 
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
+  const [filter, setFilter] = useState('Todos'); 
   
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
   const [breed, setBreed] = useState('');
   const [health, setHealth] = useState('');
   const [image, setImage] = useState(null);
-  
+
   const [rescuerName, setRescuerName] = useState('');
   const [rescuerContact, setRescuerContact] = useState('');
+  const [rescueImage, setRescueImage] = useState(null); 
 
   const API_BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
   const API_URL = `${API_BASE_URL}/animals`;
 
-  useEffect(() => {
-    getLocation();
-    fetchAnimals(); 
-  }, []);
+  useEffect(() => { getLocation(); fetchAnimals(); }, []);
 
   async function getLocation() {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -41,24 +40,23 @@ export default function MapScreen() {
     setLocation(loc.coords);
   }
 
+  // FUNÇÃO: Tirar foto de prova para o resgate
+  async function pickRescueImage() {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert("Permissão Necessária", "Autorize o uso da câmera para validar o resgate.");
+      return;
+    }
+    let result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.5 });
+    if (!result.canceled) setRescueImage(result.assets[0].uri);
+  }
+
   const handleSupportChoice = () => {
-    Alert.alert(
-      "Como deseja apoiar? ❤️",
-      "Escolha uma forma de ajudar este animal:",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "10 PetCoins", onPress: async () => {
-            const ok = await donateCoins(10);
-            if (ok) Alert.alert("Obrigado!", "Sua doação em moedas foi realizada.");
-          } 
-        },
-        { text: "PIX (Dinheiro)", onPress: () => {
-            const pixKey = "petgo-pix-2026-alpha-token";
-            Alert.alert("PIX Copia e Cola 📋", `Chave: ${pixKey}\n\nCopie esta chave no seu banco para doar qualquer valor.`);
-          }
-        }
-      ]
-    );
+    Alert.alert("Como apoiar? ❤️", "Escolha a forma de ajudar:", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "10 PetCoins", onPress: async () => { if (await donateCoins(10)) Alert.alert("Sucesso!", "Doação em moedas realizada."); } },
+      { text: "PIX", onPress: () => Alert.alert("Copia e Cola 📋", "Chave: petgo-pix-2026-tcc") }
+    ]);
   };
 
   const onShare = async (animal) => {
@@ -94,16 +92,16 @@ export default function MapScreen() {
     try {
       const res = await fetch(API_URL, { method: 'POST', body: formData, headers: { 'ngrok-skip-browser-warning': 'true' } });
       if (res.ok) {
-        Alert.alert('Sucesso', 'Animal cadastrado!');
+        setSelectedLocation(null); // Limpa o marcador verde
+        Alert.alert('Sucesso 🎉', 'Animal cadastrado no mapa!');
         setModalVisible(false);
-        setName(''); setSpecies(''); setBreed(''); setHealth(''); setImage(null); setSelectedLocation(null);
-        fetchAnimals(); 
+        setName(''); setImage(null); fetchAnimals();
       }
-    } catch (error) { Alert.alert('Erro', 'Falha ao conectar'); }
+    } catch (e) { Alert.alert('Erro', 'Falha na conexão'); }
   }
 
   async function handleRescue() {
-    if (!rescuerName || !rescuerContact) return Alert.alert('Atenção', 'Preencha seus dados');
+    if (!rescuerName || !rescuerContact || !rescueImage) return Alert.alert('Atenção', 'Preencha os dados e a FOTO DE PROVA!');
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
@@ -111,14 +109,17 @@ export default function MapScreen() {
         body: JSON.stringify({ rescuer_name: rescuerName, rescuer_contact: rescuerContact, userId: user?.id }),
       });
       if (res.ok) {
-        setRescueModalVisible(false);
-        setRescuerName(''); setRescuerContact('');
-        await refreshUserData(); 
-        fetchAnimals(); 
-        Alert.alert('Parabéns! ❤️', 'Você ganhou 50 PetCoins!');
+        setRescueModalVisible(false); setRescueImage(null); setRescuerName('');
+        await refreshUserData(); fetchAnimals();
+        Alert.alert('Parabéns! ❤️', 'Resgate validado com foto! +50 PetCoins creditadas.');
       }
-    } catch (error) { Alert.alert('Erro', 'Falha ao resgatar'); }
+    } catch (e) { Alert.alert('Erro', 'Falha ao processar resgate'); }
   }
+
+  const filteredAnimals = animals.filter(a => {
+    if (filter === 'Todos') return a.status === 0;
+    return a.status === 0 && a.species === filter;
+  });
 
   if (!location) return null;
 
@@ -135,7 +136,7 @@ export default function MapScreen() {
           </View>
         </Marker>
 
-        {animals.filter(a => a.status === 0).map((animal) => (
+        {filteredAnimals.map((animal) => (
           <Marker key={animal.id} coordinate={{ latitude: animal.latitude, longitude: animal.longitude }} onPress={() => { setSelectedAnimal(animal); setDetailVisible(true); }}>
             <View style={[styles.petMarker, { backgroundColor: animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' }]}>
               <Ionicons name="paw" size={16} color="#FFF" />
@@ -143,14 +144,23 @@ export default function MapScreen() {
           </Marker>
         ))}
 
-        {selectedLocation ? (
-          <Marker coordinate={selectedLocation}>
-            <Ionicons name="location" size={40} color="#2ECC71" />
-          </Marker>
-        ) : null}
+        {selectedLocation && <Marker coordinate={selectedLocation}><Ionicons name="location" size={40} color="#2ECC71" /></Marker>}
       </MapView>
 
-      <TouchableOpacity style={[styles.addButton, { backgroundColor: selectedLocation ? '#2ECC71' : '#4A90E2' }]} onPress={() => selectedLocation ? setModalVisible(true) : Alert.alert('Dica', 'Segure no mapa para marcar.')}>
+      {/* FILTROS DE ESPÉCIE */}
+      <View style={styles.filterContainer}>
+        {['Todos', 'Cachorro', 'Gato'].map(f => (
+          <TouchableOpacity key={f} style={[styles.filterBtn, filter === f && styles.filterBtnActive]} onPress={() => setFilter(f)}>
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity 
+        style={[styles.addButton, { backgroundColor: selectedLocation ? '#2ECC71' : '#4A90E2' }]} 
+        onPress={() => selectedLocation ? setModalVisible(true) : Alert.alert('Dica', 'Segure no mapa para marcar o local.')}
+      >
+        {/* CORREÇÃO DO ReferenceError AQUI: styles.addButtonText */}
         <Text style={styles.addButtonText}>{selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}</Text>
       </TouchableOpacity>
 
@@ -171,19 +181,11 @@ export default function MapScreen() {
                     <View style={[styles.infoBadge, {backgroundColor: '#FFF0F0'}]}><Ionicons name="medical" size={16} color="#FF6B6B" /><Text style={[styles.infoBadgeText, {color: '#FF6B6B'}]}>{selectedAnimal?.health}</Text></View>
                   </View>
                   <Text style={styles.drawerSectionTitle}>Sobre o registro:</Text>
-                  <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Você pode resgatar ou apoiar com moedas ou PIX.</Text>
-                  
+                  <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Resgate para ganhar moedas ou apoie a causa comunitária.</Text>
                   <View style={styles.drawerActions}>
-                    <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}>
-                      <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}>
-                      <Text style={styles.actionButtonText}>Resgatar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.donateButtonNew} onPress={handleSupportChoice}>
-                      <Ionicons name="heart" size={18} color="#FFF" />
-                      <Text style={styles.donateButtonText}>Apoiar</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color="#FFF" /></TouchableOpacity>
+                    <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.donateButtonNew} onPress={handleSupportChoice}><Ionicons name="heart" size={18} color="#FFF" /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
                   </View>
                 </ScrollView>
               </View>
@@ -201,18 +203,17 @@ export default function MapScreen() {
                   <Text style={styles.modalTitle}>Novo Registro 🐾</Text>
                   <TextInput placeholder="Nome" placeholderTextColor="#999" value={name} onChangeText={setName} style={styles.input} />
                   <View style={styles.row}>
-                    {/* VOLTOU PARA CACHORRO */}
-                    <TouchableOpacity style={[styles.tag, species === 'Cachorro' ? styles.tagSelected : null]} onPress={() => setSpecies('Cachorro')}><Text style={[styles.tagText, species === 'Cachorro' ? styles.tagTextSelected : null]}>🐶 Cachorro</Text></TouchableOpacity>
-                    <TouchableOpacity style={[styles.tag, species === 'Gato' ? styles.tagSelected : null]} onPress={() => setSpecies('Gato')}><Text style={[styles.tagText, species === 'Gato' ? styles.tagTextSelected : null]}>🐱 Gato</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.tag, species === 'Cachorro' && styles.tagSelected]} onPress={() => setSpecies('Cachorro')}><Text style={[styles.tagText, species === 'Cachorro' && styles.tagTextSelected]}>🐶 Cachorro</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.tag, species === 'Gato' && styles.tagSelected]} onPress={() => setSpecies('Gato')}><Text style={[styles.tagText, species === 'Gato' && styles.tagTextSelected]}>🐱 Gato</Text></TouchableOpacity>
                   </View>
                   <TextInput placeholder="Raça" placeholderTextColor="#999" value={breed} onChangeText={setBreed} style={styles.input} />
                   <TextInput placeholder="Saúde" placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
                   <TouchableOpacity onPress={pickImage} style={styles.imagePickerBtn}>
-                    {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <Text style={{color: '#999'}}>📸 Foto</Text>}
+                    {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <Text style={{color: '#999'}}>📸 Adicionar Foto</Text>}
                   </TouchableOpacity>
                   <View style={styles.modalActions}>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}><Text style={{color: '#999'}}>Voltar</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.saveButton} onPress={saveAnimal}><Text style={{color:'#FFF', fontWeight: 'bold'}}>Salvar</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.saveButton} onPress={saveAnimal}><Text style={{color:'#FFF', fontWeight: 'bold'}}>Salvar no Mapa</Text></TouchableOpacity>
                   </View>
                 </ScrollView>
               </KeyboardAvoidingView>
@@ -221,13 +222,20 @@ export default function MapScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
+      {/* MODAL RESGATE (COM FOTO DE PROVA) */}
       <Modal visible={rescueModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.rescueModal}>
-            <Text style={styles.modalTitle}>Confirmar Resgate ❤️</Text>
-            <TextInput placeholder="Seu Nome" placeholderTextColor="#999" style={styles.input} value={rescuerName} onChangeText={setRescuerName} />
-            <TextInput placeholder="WhatsApp" placeholderTextColor="#999" style={styles.input} keyboardType="phone-pad" value={rescuerContact} onChangeText={setRescuerContact} />
-            <TouchableOpacity style={styles.confirmRescueBtn} onPress={handleRescue}><Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar</Text></TouchableOpacity>
+            <Text style={styles.modalTitle}>Validar Resgate ❤️</Text>
+            <TextInput placeholder="Seu Nome" value={rescuerName} onChangeText={setRescuerName} style={styles.input} />
+            <TextInput placeholder="WhatsApp" value={rescuerContact} onChangeText={setRescuerContact} style={styles.input} keyboardType="phone-pad" />
+            
+            <Text style={{fontWeight:'bold', marginBottom:10, color:'#333'}}>Foto de Prova (Final Feliz) 📸</Text>
+            <TouchableOpacity onPress={pickRescueImage} style={styles.imagePickerMini}>
+              {rescueImage ? <Image source={{ uri: rescueImage }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.confirmRescueBtn} onPress={handleRescue}><Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setRescueModalVisible(false)} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#999'}}>Voltar</Text></TouchableOpacity>
           </View>
         </View>
@@ -242,6 +250,11 @@ const styles = StyleSheet.create({
   userMarker: { backgroundColor: '#4A90E2', padding: 6, borderRadius: 20, borderWidth: 2, borderColor: '#FFF' },
   userMarkerPremium: { backgroundColor: '#FFD700', borderColor: '#B8860B' },
   petMarker: { padding: 6, borderRadius: 15, borderWidth: 2, borderColor: '#FFF' },
+  filterContainer: { position: 'absolute', top: 60, flexDirection: 'row', alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.95)', padding: 5, borderRadius: 30, elevation: 5, zIndex: 10 },
+  filterBtn: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
+  filterBtnActive: { backgroundColor: '#4A90E2' },
+  filterText: { color: '#666', fontWeight: 'bold' },
+  filterTextActive: { color: '#FFF' },
   addButton: { position: 'absolute', bottom: 40, alignSelf: 'center', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30, elevation: 5 },
   addButtonText: { color: '#fff', fontWeight: 'bold' },
   drawerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
@@ -264,7 +277,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '85%' },
-  rescueModal: { backgroundColor: '#FFF', borderRadius: 25, padding: 25 },
+  rescueModal: { backgroundColor: '#FFF', borderRadius: 25, padding: 25, elevation: 10 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' },
   input: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#EEE', color: '#333' },
   row: { flexDirection: 'row', marginBottom: 15 },
@@ -273,6 +286,7 @@ const styles = StyleSheet.create({
   tagText: { color: '#495057', fontWeight: 'bold' },
   tagTextSelected: { color: '#FFF' },
   imagePickerBtn: { height: 100, backgroundColor: '#F8F9FA', borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CCC', marginBottom: 15 },
+  imagePickerMini: { height: 80, backgroundColor: '#F8F9FA', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CCC', marginBottom: 20 },
   previewImage: { width: '100%', height: '100%', borderRadius: 15 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between' },
   cancelButton: { padding: 15, flex: 1, alignItems: 'center' },

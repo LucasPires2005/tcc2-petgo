@@ -25,7 +25,6 @@ export function AuthProvider({ children }) {
     } catch (e) { console.log("Erro nas moedas"); }
   }
 
-  // FUNÇÃO: VIRAR MEMBRO PRO
   async function buyPremium() {
     try {
       const response = await fetch(`${BASE_URL}/auth/upgrade-pro`, {
@@ -36,16 +35,13 @@ export function AuthProvider({ children }) {
       const data = await response.json();
       if (response.ok) {
         setUser(data.user);
-        Alert.alert("Parabéns! 💎", "Você agora é um Membro PRO! Seu perfil ganhou destaque e novos recursos.");
+        Alert.alert("Parabéns! 💎", "Você agora é um Membro PRO!");
         return true;
-      } else {
-        Alert.alert("Erro", data.error);
-        return false;
       }
+      return false;
     } catch (e) { return false; }
   }
 
-  // FUNÇÃO: DOAR PETCOINS
   async function donateCoins(amount) {
     try {
       const response = await fetch(`${BASE_URL}/auth/donate`, {
@@ -62,7 +58,6 @@ export function AuthProvider({ children }) {
     } catch (e) { return false; }
   }
 
-  // ... (Login, Register, Redeem - mantenha como já estavam no seu arquivo anterior)
   async function redeemReward(cost) {
     try {
       const response = await fetch(`${BASE_URL}/auth/redeem`, {
@@ -74,48 +69,62 @@ export function AuthProvider({ children }) {
       if (response.ok) {
         setUser({ ...user, coins: data.newBalance });
         return data.couponCode;
-      } else {
-        Alert.alert("Saldo Insuficiente", data.error || "Erro ao processar resgate.");
-        return null;
       }
-    } catch (e) { Alert.alert("Erro", "Falha na conexão."); return null; }
+      return null;
+    } catch (e) { return null; }
   }
 
+  // --- LOGIN COM LIMPEZA DE DADOS ---
   async function login(email, password) {
+    const cleanEmail = email.trim().toLowerCase(); // Tira espaços e joga pra minúsculo
     try {
       const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: cleanEmail, password }),
       });
       const data = await res.json();
-      if (res.ok) { setUser(data); fetchAnimals(); }
-      else { Alert.alert('Erro', data.error || 'Falha no login'); }
+      if (res.ok) { 
+        setUser(data); 
+        fetchAnimals(); 
+      } else { 
+        Alert.alert('Erro', data.error || 'E-mail ou senha incorretos'); 
+      }
     } catch (error) { Alert.alert('Erro', 'Conexão falhou.'); }
   }
 
+  // --- CADASTRO COM LIMPEZA DE DADOS ---
   async function register(name, email, password) {
+    const cleanEmail = email.trim().toLowerCase();
     try {
       const response = await fetch(`${BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email: cleanEmail, password }),
       });
-      const data = await response.json();
-      if (response.ok) { Alert.alert('Sucesso', 'Conta criada!'); return true; }
-      else { Alert.alert('Erro', data.error); return false; }
+      if (response.ok) { 
+        Alert.alert('Sucesso', 'Conta criada!'); 
+        return true; 
+      }
+      return false;
     } catch (error) { return false; }
   }
 
+  // --- UPDATE COM LIMPEZA DE DADOS ---
   async function updateAccount(newName, newEmail) {
+    const cleanEmail = newEmail.trim().toLowerCase();
     try {
       const res = await fetch(`${BASE_URL}/auth/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, name: newName, email: newEmail }),
+        body: JSON.stringify({ id: user.id, name: newName, email: cleanEmail }),
       });
       const data = await res.json();
-      if (res.ok) { setUser(data); Alert.alert("Sucesso", "Perfil atualizado!"); return true; }
+      if (res.ok) { 
+        setUser(data); 
+        return true; 
+      }
+      return false;
     } catch (e) { return false; }
   }
 
@@ -126,8 +135,7 @@ export function AuthProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, currentPassword, newPassword }),
       });
-      if (res.ok) { Alert.alert('Sucesso', 'Senha alterada!'); return true; }
-      else { Alert.alert('Erro', 'Senha atual incorreta'); return false; }
+      return res.ok;
     } catch (e) { return false; }
   }
 
@@ -135,7 +143,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
-      buyPremium, donateCoins, // Adicionados ao Provider
+      buyPremium, donateCoins, 
       logout: () => setUser(null)
     }}>
       {children}
