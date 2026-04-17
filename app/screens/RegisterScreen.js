@@ -13,11 +13,10 @@ export default function RegisterScreen({ navigation }) {
       return Alert.alert('Atenção', 'Preencha todos os campos para criar sua conta.');
     }
 
-    // Chama a função real do backend via context
     const success = await register(name, email, password);
     
     if (success) {
-      navigation.goBack(); // Se deu certo, volta para o login
+      navigation.goBack(); 
     }
   };
 

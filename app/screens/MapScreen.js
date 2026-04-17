@@ -40,22 +40,26 @@ export default function MapScreen() {
     setLocation(loc.coords);
   }
 
-  // FUNÇÃO: Tirar foto de prova para o resgate
   async function pickRescueImage() {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert("Permissão Necessária", "Autorize o uso da câmera para validar o resgate.");
+      Alert.alert("Permissão Necessária", "Autorize o uso da câmera.");
       return;
     }
-    let result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.5 });
+    // FIX: Adicionado mediaTypes: ['images'] para remover o aviso de depreciação
+    let result = await ImagePicker.launchCameraAsync({ 
+      mediaTypes: ['images'], 
+      allowsEditing: true, 
+      quality: 0.5 
+    });
     if (!result.canceled) setRescueImage(result.assets[0].uri);
   }
 
   const handleSupportChoice = () => {
     Alert.alert("Como apoiar? ❤️", "Escolha a forma de ajudar:", [
       { text: "Cancelar", style: "cancel" },
-      { text: "10 PetCoins", onPress: async () => { if (await donateCoins(10)) Alert.alert("Sucesso!", "Doação em moedas realizada."); } },
-      { text: "PIX", onPress: () => Alert.alert("Copia e Cola 📋", "Chave: petgo-pix-2026-tcc") }
+      { text: "10 PetCoins", onPress: async () => { if (await donateCoins(10)) Alert.alert("Sucesso!", "Doação realizada."); } },
+      { text: "PIX", onPress: () => Alert.alert("PIX 📋", "Chave: petgo-pix-2026-tcc") }
     ]);
   };
 
@@ -63,14 +67,19 @@ export default function MapScreen() {
     try {
       const lat = animal?.latitude;
       const lon = animal?.longitude;
-      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-      const message = `🐾 Ajuda Necessária!\n\n${animal?.species} (${animal?.name || 'Sem nome'})\n📍 Localização: ${googleMapsUrl}\n🏥 Estado: ${animal?.health}\n\nVia PetGo 🐶`;
+      const googleMapsUrl = `http://maps.google.com/?q=${lat},${lon}`;
+      const message = `🐾 Ajuda Necessária!\n\n${animal?.species}\n📍 Localização: ${googleMapsUrl}\n🏥 Estado: ${animal?.health}\n\nVia PetGo 🐶`;
       await Share.share({ message });
     } catch (error) { Alert.alert("Erro", "Falha ao compartilhar"); }
   };
 
   async function pickImage() {
-    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.5 });
+    // FIX: Substituído o MediaTypeOptions pelo novo padrão ['images']
+    let result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ['images'], 
+      allowsEditing: true, 
+      quality: 0.5 
+    });
     if (!result.canceled) setImage(result.assets[0].uri);
   }
 
@@ -83,7 +92,7 @@ export default function MapScreen() {
     formData.append('health', health);
     formData.append('latitude', selectedLocation.latitude.toString());
     formData.append('longitude', selectedLocation.longitude.toString());
-    formData.append('userId', user?.id);
+    formData.append('userId', user?.id?.toString());
     if (image) {
       const filename = image.split('/').pop();
       const match = /\.(\w+)$/.exec(filename);
@@ -92,25 +101,47 @@ export default function MapScreen() {
     try {
       const res = await fetch(API_URL, { method: 'POST', body: formData, headers: { 'ngrok-skip-browser-warning': 'true' } });
       if (res.ok) {
-        setSelectedLocation(null); // Limpa o marcador verde
-        Alert.alert('Sucesso 🎉', 'Animal cadastrado no mapa!');
+        setSelectedLocation(null);
+        Alert.alert('Sucesso 🎉', 'Animal cadastrado!');
         setModalVisible(false);
         setName(''); setImage(null); fetchAnimals();
       }
     } catch (e) { Alert.alert('Erro', 'Falha na conexão'); }
   }
 
+  // NOVO: Função handleRescue enviando FormData para a foto da prova chegar no servidor
   async function handleRescue() {
     if (!rescuerName || !rescuerContact || !rescueImage) return Alert.alert('Atenção', 'Preencha os dados e a FOTO DE PROVA!');
+    
+    const formData = new FormData();
+    formData.append('rescuer_name', rescuerName);
+    formData.append('rescuer_contact', rescuerContact);
+    formData.append('userId', user?.id?.toString());
+
+    // NOVO: Anexando a foto do resgate
+    const filename = rescueImage.split('/').pop();
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : `image`;
+    
+    formData.append('rescue_image', { 
+      uri: rescueImage, 
+      name: filename, 
+      type: type 
+    });
+
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-        body: JSON.stringify({ rescuer_name: rescuerName, rescuer_contact: rescuerContact, userId: user?.id }),
+        body: formData, // FormData permite upload de arquivos
+        headers: { 'ngrok-skip-browser-warning': 'true' },
       });
+
       if (res.ok) {
-        setRescueModalVisible(false); setRescueImage(null); setRescuerName('');
-        await refreshUserData(); fetchAnimals();
+        setRescueModalVisible(false); 
+        setRescueImage(null); 
+        setRescuerName('');
+        await refreshUserData(); 
+        fetchAnimals();
         Alert.alert('Parabéns! ❤️', 'Resgate validado com foto! +50 PetCoins creditadas.');
       }
     } catch (e) { Alert.alert('Erro', 'Falha ao processar resgate'); }
@@ -147,7 +178,6 @@ export default function MapScreen() {
         {selectedLocation && <Marker coordinate={selectedLocation}><Ionicons name="location" size={40} color="#2ECC71" /></Marker>}
       </MapView>
 
-      {/* FILTROS DE ESPÉCIE */}
       <View style={styles.filterContainer}>
         {['Todos', 'Cachorro', 'Gato'].map(f => (
           <TouchableOpacity key={f} style={[styles.filterBtn, filter === f && styles.filterBtnActive]} onPress={() => setFilter(f)}>
@@ -160,7 +190,6 @@ export default function MapScreen() {
         style={[styles.addButton, { backgroundColor: selectedLocation ? '#2ECC71' : '#4A90E2' }]} 
         onPress={() => selectedLocation ? setModalVisible(true) : Alert.alert('Dica', 'Segure no mapa para marcar o local.')}
       >
-        {/* CORREÇÃO DO ReferenceError AQUI: styles.addButtonText */}
         <Text style={styles.addButtonText}>{selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}</Text>
       </TouchableOpacity>
 
@@ -222,7 +251,6 @@ export default function MapScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* MODAL RESGATE (COM FOTO DE PROVA) */}
       <Modal visible={rescueModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.rescueModal}>

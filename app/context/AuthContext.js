@@ -74,9 +74,8 @@ export function AuthProvider({ children }) {
     } catch (e) { return null; }
   }
 
-  // --- LOGIN COM LIMPEZA DE DADOS ---
   async function login(email, password) {
-    const cleanEmail = email.trim().toLowerCase(); // Tira espaços e joga pra minúsculo
+    const cleanEmail = email.trim().toLowerCase();
     try {
       const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
@@ -93,7 +92,7 @@ export function AuthProvider({ children }) {
     } catch (error) { Alert.alert('Erro', 'Conexão falhou.'); }
   }
 
-  // --- CADASTRO COM LIMPEZA DE DADOS ---
+  // ADIÇÃO: Cadastro com aviso de e-mail já existente
   async function register(name, email, password) {
     const cleanEmail = email.trim().toLowerCase();
     try {
@@ -102,15 +101,20 @@ export function AuthProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email: cleanEmail, password }),
       });
+      const data = await response.json();
       if (response.ok) { 
-        Alert.alert('Sucesso', 'Conta criada!'); 
+        Alert.alert('Sucesso 🎉', 'Conta criada!'); 
         return true; 
+      } else { 
+        Alert.alert('Erro no Cadastro', data.error || 'Falha ao criar conta.');
+        return false; 
       }
-      return false;
-    } catch (error) { return false; }
+    } catch (error) { 
+      Alert.alert('Erro', 'Falha na conexão.');
+      return false; 
+    }
   }
 
-  // --- UPDATE COM LIMPEZA DE DADOS ---
   async function updateAccount(newName, newEmail) {
     const cleanEmail = newEmail.trim().toLowerCase();
     try {

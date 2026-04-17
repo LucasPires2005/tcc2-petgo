@@ -40,13 +40,27 @@ export default function AccountScreen() {
     }
   };
 
+  // ADIÇÃO: Função de senha com avisos de erro detalhados
   const handlePasswordChange = async () => {
-    if (newPass !== confirmPwd) return Alert.alert("Erro", "As novas senhas não coincidem.");
+    // Caso 1: Campos vazios
+    if (!currPass || !newPass || !confirmPwd) {
+        return Alert.alert("Atenção", "Preencha todos os campos de senha.");
+    }
+    
+    // Caso 2: Senhas novas não batem (ex: 2 e 3)
+    if (newPass !== confirmPwd) {
+        return Alert.alert("Erro", "A confirmação da nova senha não coincide.");
+    }
+
     const success = await changePassword(currPass, newPass);
+    
     if (success) {
       Alert.alert("Sucesso 🎉", "Sua senha foi alterada com sucesso!");
       setPwdModal(false);
       setCurrPass(''); setNewPass(''); setConfirmPwd('');
+    } else {
+      // Caso 3: Senha atual ("1") está incorreta no banco
+      Alert.alert("Erro", "A senha atual digitada está incorreta.");
     }
   };
 
@@ -219,7 +233,6 @@ export default function AccountScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Editar Perfil</Text>
-              {/* ADICIONADO underlineColorAndroid="transparent" PARA FIX DO CINZA */}
               <TextInput style={styles.input} placeholder="Nome" value={newName} onChangeText={setNewName} underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TextInput style={styles.input} placeholder="E-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TouchableOpacity style={styles.btnSave} onPress={handleUpdate}>
@@ -266,22 +279,26 @@ export default function AccountScreen() {
               contentContainerStyle={{padding: 20}}
               renderItem={({item}) => (
                 <View style={styles.rescueCard}>
+                  {/* FOTO ORIGINAL */}
                   <Image source={{ uri: `${API_BASE_URL}${item.image_url}` }} style={styles.cardImage} />
+                  
                   <View style={{marginLeft: 15, flex: 1}}>
-                    <Text style={styles.cardName}>{item.name}</Text>
-                    <Text style={{color: '#666', fontSize: 12}}>{item.species}</Text>
+                    <Text style={styles.cardName}>{String(item.name)}</Text>
+                    <Text style={{color: '#666', fontSize: 12}}>{String(item.species)}</Text>
                     <View style={[styles.statusTag, {backgroundColor: item.status === 1 ? '#D1FAE5' : '#FEF3C7'}]}>
                        <Text style={[styles.statusTagText, {color: item.status === 1 ? '#059669' : '#D97706'}]}>
                          {item.status === 1 ? 'Salvo ❤️' : 'Aguardando ⏳'}
                        </Text>
                     </View>
                   </View>
-                  {item.status === 1 && item.rescue_image_url && (
+
+                  {/* FOTO DO RESGATE (O QUE VOCÊ TIROU NA HORA DO RESGATE) */}
+                  {item.status === 1 && item.rescue_image_url ? (
                     <View style={styles.finalHappyBox}>
                        <Image source={{ uri: `${API_BASE_URL}${item.rescue_image_url}` }} style={styles.rescueThumbnail} />
                        <Text style={{fontSize: 8, color: '#4A90E2', fontWeight: 'bold'}}>FINAL FELIZ</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               )}
             />
@@ -333,7 +350,6 @@ const styles = StyleSheet.create({
   modalListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, paddingTop: Platform.OS === 'ios' ? 20 : 10 },
   modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   
-  // --- ESTILO INPUT (FIX DO CINZA QUE SOME) ---
   input: { 
     backgroundColor: '#F0F0F0', // CINZA TRAVADO
     padding: 15, 

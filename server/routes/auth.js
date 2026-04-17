@@ -17,8 +17,6 @@ router.post('/buy-product', (req, res) => {
   });
 });
 
-// ... (Mantenha Login, Register, Update Status, Upgrade PRO e Donate como estavam)
-
 router.post('/upgrade-pro', (req, res) => {
   const { userId } = req.body;
   const cost = 50;
@@ -93,7 +91,8 @@ router.delete('/delete/:id', (req, res) => {
 router.post('/register', (req, res) => {
   const { name, email, password } = req.body;
   db.run(`INSERT INTO users (name, email, password) VALUES (?, ?, ?)`, [name, email, password], function (err) {
-    if (err) return res.status(400).json({ error: "E-mail cadastrado" });
+    // ADIÇÃO: Verificação de erro para e-mail já existente
+    if (err) return res.status(400).json({ error: "Este e-mail já está em uso em outra conta." });
     res.json({ id: this.lastID, message: "Criado!" });
   });
 });

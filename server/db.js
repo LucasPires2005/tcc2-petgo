@@ -15,7 +15,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de Animais
+  // Tabela de Animais (ADICIONADA COLUNA rescue_image_url)
   db.run(`
     CREATE TABLE IF NOT EXISTS animals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,6 +26,7 @@ db.serialize(() => {
       latitude REAL,
       longitude REAL,
       image_url TEXT,
+      rescue_image_url TEXT, 
       userId INTEGER,
       status INTEGER DEFAULT 0,
       rescuer_name TEXT,
@@ -35,7 +36,7 @@ db.serialize(() => {
     )
   `);
 
-  // Tabela de Parceiros (Monetização B2B)
+  // Tabela de Parceiros
   db.run(`
     CREATE TABLE IF NOT EXISTS partners (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,10 +46,11 @@ db.serialize(() => {
     )
   `);
 
-  // SEGURANÇA: Migration para não quebrar bancos antigos
+  // NOVO: Migrations que não quebram o servidor (Ignoram erro se a coluna já existir)
   db.run("ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE users ADD COLUMN is_premium INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE animals ADD COLUMN userId INTEGER", () => {});
+  db.run("ALTER TABLE animals ADD COLUMN rescue_image_url TEXT", () => {}); 
 });
 
 module.exports = db;
