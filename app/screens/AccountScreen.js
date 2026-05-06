@@ -156,11 +156,18 @@ export default function AccountScreen() {
                 <Ionicons name="cash" size={18} color="#FFD700" />
                 <Text style={styles.statText}>{String(user?.coins || 0)} PetCoins</Text>
               </View>
+
               <View style={[styles.statBox, user?.is_premium === 1 ? styles.premiumBadgeBox : null]}>
                 <Ionicons name="star" size={18} color={user?.is_premium === 1 ? "#B8860B" : "#999"} />
                 <Text style={[styles.statText, user?.is_premium === 1 ? {color: '#B8860B'} : null]}>
                   {user?.is_premium === 1 ? 'PREMIUM' : 'BÁSICO'}
                 </Text>
+              </View>
+
+              {/* NOVO: Contador de Impacto (Resgates realizados pelo usuário) */}
+              <View style={styles.statBox}>
+                <Ionicons name="checkmark-done-circle" size={18} color="#2ECC71" />
+                <Text style={styles.statText}>{myRescues.length} Salvos</Text>
               </View>
             </View>
           </View>
@@ -322,10 +329,10 @@ const styles = StyleSheet.create({
   userEmail: { fontSize: 14, color: '#888', marginBottom: 5 },
   memberBadge: { backgroundColor: '#E1F0FF', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, marginBottom: 15 },
   memberBadgeText: { color: '#4A90E2', fontWeight: 'bold', fontSize: 13 },
-  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', paddingHorizontal: 20 },
-  statBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 12, borderRadius: 15, minWidth: '42%', justifyContent: 'center' },
+  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', paddingHorizontal: 10 },
+  statBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 10, borderRadius: 15, minWidth: '30%', justifyContent: 'center' },
   premiumBadgeBox: { backgroundColor: '#FFF9E6', borderWidth: 1, borderColor: '#FFD700' },
-  statText: { marginLeft: 8, fontWeight: 'bold', fontSize: 12, color: '#555' },
+  statText: { marginLeft: 5, fontWeight: 'bold', fontSize: 10, color: '#555' },
   upgradeCard: { margin: 20, backgroundColor: '#4A90E2', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', elevation: 4 },
   upgradeTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   upgradeSubtitle: { color: '#EEE', fontSize: 11 },
