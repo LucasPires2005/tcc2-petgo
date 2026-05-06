@@ -39,6 +39,9 @@ export default function MapScreen() {
   const [breed, setBreed] = useState('');
   const [health, setHealth] = useState('');
   const [image, setImage] = useState(null);
+  
+  // NOVO: Estado para gerenciar o Semáforo de Urgência
+  const [urgency, setUrgency] = useState('Estável');
 
   const [rescuerName, setRescuerName] = useState('');
   const [rescuerContact, setRescuerContact] = useState('');
@@ -62,6 +65,7 @@ export default function MapScreen() {
       Alert.alert("Permissão Necessária", "Autorize o uso da câmera.");
       return;
     }
+    // FIX: Adicionado mediaTypes: ['images'] para remover o aviso de depreciação
     let result = await ImagePicker.launchCameraAsync({ 
       mediaTypes: ['images'], 
       allowsEditing: true, 
@@ -89,6 +93,7 @@ export default function MapScreen() {
   };
 
   async function pickImage() {
+    // FIX: Substituído o MediaTypeOptions pelo novo padrão ['images']
     let result = await ImagePicker.launchImageLibraryAsync({ 
       mediaTypes: ['images'], 
       allowsEditing: true, 
@@ -107,6 +112,10 @@ export default function MapScreen() {
     formData.append('latitude', selectedLocation.latitude.toString());
     formData.append('longitude', selectedLocation.longitude.toString());
     formData.append('userId', user?.id?.toString());
+    
+    // ADIÇÃO: Enviando a urgência para o banco
+    formData.append('urgency', urgency);
+
     if (image) {
       const filename = image.split('/').pop();
       const match = /\.(\w+)$/.exec(filename);
@@ -118,7 +127,7 @@ export default function MapScreen() {
         setSelectedLocation(null);
         Alert.alert('Sucesso 🎉', 'Animal cadastrado!');
         setModalVisible(false);
-        setName(''); setImage(null); fetchAnimals();
+        setName(''); setImage(null); setUrgency('Estável'); fetchAnimals();
       }
     } catch (e) { Alert.alert('Erro', 'Falha na conexão'); }
   }
@@ -131,6 +140,7 @@ export default function MapScreen() {
     formData.append('rescuer_contact', rescuerContact);
     formData.append('userId', user?.id?.toString());
 
+    // NOVO: Anexando a foto do resgate
     const filename = rescueImage.split('/').pop();
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image`;
@@ -144,7 +154,7 @@ export default function MapScreen() {
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
-        body: formData, 
+        body: formData, // FormData permite upload de arquivos
         headers: { 'ngrok-skip-browser-warning': 'true' },
       });
 
@@ -181,7 +191,15 @@ export default function MapScreen() {
 
         {filteredAnimals.map((animal) => (
           <Marker key={animal.id} coordinate={{ latitude: animal.latitude, longitude: animal.longitude }} onPress={() => { setSelectedAnimal(animal); setDetailVisible(true); }}>
-            <View style={[styles.petMarker, { backgroundColor: animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' }]}>
+            {/* ADIÇÃO: Lógica do Semáforo - Cor baseada na Urgência */}
+            <View style={[
+              styles.petMarker, 
+              { backgroundColor: 
+                  animal.urgency === 'Crítico' ? '#E74C3C' : // Vermelho
+                  animal.urgency === 'Alerta' ? '#F1C40F' :  // Amarelo
+                  animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' // Verde/Padrão
+              }
+            ]}>
               <Ionicons name="paw" size={16} color="#FFF" />
             </View>
           </Marker>
@@ -257,6 +275,21 @@ export default function MapScreen() {
                     <TouchableOpacity style={[styles.tag, species === 'Cachorro' && styles.tagSelected]} onPress={() => setSpecies('Cachorro')}><Text style={[styles.tagText, species === 'Cachorro' && styles.tagTextSelected]}>🐶 Cachorro</Text></TouchableOpacity>
                     <TouchableOpacity style={[styles.tag, species === 'Gato' && styles.tagSelected]} onPress={() => setSpecies('Gato')}><Text style={[styles.tagText, species === 'Gato' && styles.tagTextSelected]}>🐱 Gato</Text></TouchableOpacity>
                   </View>
+
+                  {/* ADIÇÃO: Seleção de Urgência no Cadastro */}
+                  <Text style={{fontWeight: 'bold', marginBottom: 10, color: '#333'}}>Nível de Urgência:</Text>
+                  <View style={styles.row}>
+                    {['Estável', 'Alerta', 'Crítico'].map(level => (
+                      <TouchableOpacity 
+                        key={level} 
+                        style={[styles.tag, urgency === level && {backgroundColor: level === 'Crítico' ? '#E74C3C' : level === 'Alerta' ? '#F1C40F' : '#2ECC71'}]} 
+                        onPress={() => setUrgency(level)}
+                      >
+                        <Text style={[styles.tagText, urgency === level && {color: '#FFF'}]}>{level}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                   <TextInput placeholder="Raça" placeholderTextColor="#999" value={breed} onChangeText={setBreed} style={styles.input} />
                   <TextInput placeholder="Saúde" placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
                   <TouchableOpacity onPress={pickImage} style={styles.imagePickerBtn}>

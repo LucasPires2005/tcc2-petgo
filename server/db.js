@@ -51,6 +51,9 @@ db.serialize(() => {
   db.run("ALTER TABLE users ADD COLUMN is_premium INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE animals ADD COLUMN userId INTEGER", () => {});
   db.run("ALTER TABLE animals ADD COLUMN rescue_image_url TEXT", () => {}); 
+  
+  // ADIÇÃO: Coluna de Urgência para o Semáforo Visual
+  db.run("ALTER TABLE animals ADD COLUMN urgency TEXT DEFAULT 'Estável'", () => {});
 });
 
 module.exports = db;
