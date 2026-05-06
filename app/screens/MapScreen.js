@@ -6,6 +6,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
+// NOVO: Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
+const getRelativeTime = (dateString) => {
+  if (!dateString) return 'Data desconhecida';
+  const now = new Date();
+  const past = new Date(dateString);
+  const diffInMs = now - past;
+  const diffInMins = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+  if (diffInMins < 1) return 'Agora mesmo';
+  if (diffInMins < 60) return `Visto há ${diffInMins}min`;
+  if (diffInHours < 24) return `Visto há ${diffInHours}h`;
+  return `Visto há ${diffInDays} dias`;
+};
+
 export default function MapScreen() {
   const { user, refreshUserData, animals, fetchAnimals, donateCoins } = useContext(AuthContext); 
   
@@ -46,7 +62,6 @@ export default function MapScreen() {
       Alert.alert("Permissão Necessária", "Autorize o uso da câmera.");
       return;
     }
-    // FIX: Adicionado mediaTypes: ['images'] para remover o aviso de depreciação
     let result = await ImagePicker.launchCameraAsync({ 
       mediaTypes: ['images'], 
       allowsEditing: true, 
@@ -74,7 +89,6 @@ export default function MapScreen() {
   };
 
   async function pickImage() {
-    // FIX: Substituído o MediaTypeOptions pelo novo padrão ['images']
     let result = await ImagePicker.launchImageLibraryAsync({ 
       mediaTypes: ['images'], 
       allowsEditing: true, 
@@ -109,7 +123,6 @@ export default function MapScreen() {
     } catch (e) { Alert.alert('Erro', 'Falha na conexão'); }
   }
 
-  // NOVO: Função handleRescue enviando FormData para a foto da prova chegar no servidor
   async function handleRescue() {
     if (!rescuerName || !rescuerContact || !rescueImage) return Alert.alert('Atenção', 'Preencha os dados e a FOTO DE PROVA!');
     
@@ -118,7 +131,6 @@ export default function MapScreen() {
     formData.append('rescuer_contact', rescuerContact);
     formData.append('userId', user?.id?.toString());
 
-    // NOVO: Anexando a foto do resgate
     const filename = rescueImage.split('/').pop();
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image`;
@@ -132,7 +144,7 @@ export default function MapScreen() {
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
-        body: formData, // FormData permite upload de arquivos
+        body: formData, 
         headers: { 'ngrok-skip-browser-warning': 'true' },
       });
 
@@ -205,10 +217,20 @@ export default function MapScreen() {
                     <TouchableOpacity onPress={() => setDetailVisible(false)}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
                   </View>
                   <Image source={selectedAnimal?.image_url ? { uri: `${API_BASE_URL}${selectedAnimal.image_url}` } : null} style={styles.drawerImage} />
+                  
                   <View style={styles.infoRow}>
                     <View style={styles.infoBadge}><Ionicons name="paw" size={16} color="#4A90E2" /><Text style={styles.infoBadgeText}>{selectedAnimal?.species}</Text></View>
                     <View style={[styles.infoBadge, {backgroundColor: '#FFF0F0'}]}><Ionicons name="medical" size={16} color="#FF6B6B" /><Text style={[styles.infoBadgeText, {color: '#FF6B6B'}]}>{selectedAnimal?.health}</Text></View>
+                    
+                    {/* ADIÇÃO: Badge de Tempo Relativo (Visto há X min) */}
+                    <View style={[styles.infoBadge, {backgroundColor: '#F5F5F5'}]}>
+                      <Ionicons name="time-outline" size={16} color="#666" />
+                      <Text style={[styles.infoBadgeText, {color: '#666'}]}>
+                        {getRelativeTime(selectedAnimal?.created_at)}
+                      </Text>
+                    </View>
                   </View>
+
                   <Text style={styles.drawerSectionTitle}>Sobre o registro:</Text>
                   <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Resgate para ganhar moedas ou apoie a causa comunitária.</Text>
                   <View style={styles.drawerActions}>
@@ -291,9 +313,9 @@ const styles = StyleSheet.create({
   drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   drawerTitle: { fontSize: 24, fontWeight: 'bold', color: '#333' },
   drawerImage: { width: '100%', height: 180, borderRadius: 20, marginBottom: 15, backgroundColor: '#F0F0F0' },
-  infoRow: { flexDirection: 'row', marginBottom: 15 },
-  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F7FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, marginRight: 10 },
-  infoBadgeText: { marginLeft: 6, fontWeight: 'bold', color: '#4A90E2', fontSize: 13 },
+  infoRow: { flexDirection: 'row', marginBottom: 15, flexWrap: 'wrap' },
+  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F7FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginRight: 8, marginBottom: 5 },
+  infoBadgeText: { marginLeft: 6, fontWeight: 'bold', color: '#4A90E2', fontSize: 11 },
   drawerSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
   drawerDescription: { fontSize: 14, color: '#777', lineHeight: 20, marginBottom: 20 },
   drawerActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
