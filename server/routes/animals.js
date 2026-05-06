@@ -14,10 +14,23 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', upload.single('image'), (req, res) => {
-  const { name, species, breed, health, latitude, longitude, userId } = req.body;
+  // AJUSTE: Adicionado 'urgency' na desestruturação do corpo da requisição
+  const { name, species, breed, health, latitude, longitude, userId, urgency } = req.body;
   const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-  db.run(`INSERT INTO animals (name, species, breed, health, latitude, longitude, image_url, userId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
-  [name || "Sem nome", species, breed, health, latitude, longitude, imageUrl, userId], function (err) {
+
+  // AJUSTE: Adicionado a coluna 'urgency' e mais um '?' no final do comando SQL
+  db.run(`INSERT INTO animals (name, species, breed, health, latitude, longitude, image_url, userId, urgency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+  [
+    name || "Sem nome", 
+    species, 
+    breed, 
+    health, 
+    latitude, 
+    longitude, 
+    imageUrl, 
+    userId, 
+    urgency || 'Estável' // Garante que se vier vazio, salve como 'Estável'
+  ], function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID, ...req.body });
   });

@@ -191,13 +191,14 @@ export default function MapScreen() {
 
         {filteredAnimals.map((animal) => (
           <Marker key={animal.id} coordinate={{ latitude: animal.latitude, longitude: animal.longitude }} onPress={() => { setSelectedAnimal(animal); setDetailVisible(true); }}>
-            {/* ADIÇÃO: Lógica do Semáforo - Cor baseada na Urgência */}
+            {/* AJUSTE: Cor do Marcador baseada na Urgência (Semáforo Blindado) */}
             <View style={[
               styles.petMarker, 
               { backgroundColor: 
                   animal.urgency === 'Crítico' ? '#E74C3C' : // Vermelho
                   animal.urgency === 'Alerta' ? '#F1C40F' :  // Amarelo
-                  animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' // Verde/Padrão
+                  animal.urgency === 'Estável' ? '#2ECC71' : // Verde
+                  animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' // Backup se for nulo
               }
             ]}>
               <Ionicons name="paw" size={16} color="#FFF" />

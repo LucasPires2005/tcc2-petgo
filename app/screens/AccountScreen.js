@@ -167,7 +167,10 @@ export default function AccountScreen() {
               {/* NOVO: Contador de Impacto (Resgates realizados pelo usuário) */}
               <View style={styles.statBox}>
                 <Ionicons name="checkmark-done-circle" size={18} color="#2ECC71" />
-                <Text style={styles.statText}>{myRescues.length} Salvos</Text>
+                {/* Filtra a lista para contar apenas quem tem status 1 (Salvo) */}
+                <Text style={styles.statText}>
+                {myRescues.filter(animal => animal.status === 1).length} Salvos
+                </Text>
               </View>
             </View>
           </View>
