@@ -20,13 +20,34 @@ router.post('/buy-product', (req, res) => {
 router.post('/upgrade-pro', (req, res) => {
   const { userId } = req.body;
   const cost = 50;
+  // AJUSTE: Adicionado plan_tier no retorno
   db.get('SELECT coins, is_premium FROM users WHERE id = ?', [userId], (err, user) => {
     if (err || !user) return res.status(404).json({ error: "Usuário não encontrado" });
     if (user.is_premium === 1) return res.status(400).json({ error: "Você já é PRO" });
     if (user.coins < cost) return res.status(400).json({ error: "Saldo insuficiente" });
     const newBalance = user.coins - cost;
     db.run('UPDATE users SET coins = ?, is_premium = 1 WHERE id = ?', [newBalance, userId], () => {
-      db.get('SELECT id, name, email, coins, is_premium FROM users WHERE id = ?', [userId], (err, updated) => res.json({ success: true, user: updated }));
+      db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [userId], (err, updated) => res.json({ success: true, user: updated }));
+    });
+  });
+});
+
+// NOVO: ROTA PARA ATIVAR PLANOS DE ASSINATURA
+router.post('/subscribe-plan', (req, res) => {
+  // planTier: 1 (Amigo), 2 (Protetor), 3 (Guardião)
+  const { userId, planTier } = req.body; 
+
+  db.get('SELECT id FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err || !user) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    // Atualiza o plano do usuário no banco
+    db.run('UPDATE users SET plan_tier = ? WHERE id = ?', [planTier, userId], (err) => {
+      if (err) return res.status(500).json({ error: "Erro ao ativar assinatura" });
+
+      // Retorna o usuário atualizado com a nova coluna plan_tier
+      db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [userId], (err, updatedUser) => {
+        res.json({ success: true, message: "Plano ativado com sucesso! 🎉", user: updatedUser });
+      });
     });
   });
 });
@@ -56,14 +77,16 @@ router.post('/redeem', (req, res) => {
 
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
-  db.get('SELECT id, name, email, coins, is_premium FROM users WHERE email = ? AND password = ?', [email, password], (err, user) => {
+  // AJUSTE: Adicionado plan_tier na consulta de login
+  db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE email = ? AND password = ?', [email, password], (err, user) => {
     if (err || !user) return res.status(401).json({ error: "Credenciais inválidas" });
     res.json(user);
   });
 });
 
 router.get('/update-status/:id', (req, res) => {
-  db.get('SELECT id, name, email, coins, is_premium FROM users WHERE id = ?', [req.params.id], (err, user) => {
+  // AJUSTE: Adicionado plan_tier na atualização de status
+  db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [req.params.id], (err, user) => {
     if (user) res.json(user);
     else res.status(404).json({ error: "Não encontrado" });
   });
@@ -71,8 +94,12 @@ router.get('/update-status/:id', (req, res) => {
 
 router.put('/update', (req, res) => {
   const { id, name, email } = req.body;
-  db.run(`UPDATE users SET name = ?, email = ? WHERE id = ?`, [name, email, id], () => {
-    db.get('SELECT id, name, email, coins, is_premium FROM users WHERE id = ?', [id], (err, user) => res.json(user));
+  db.run(`UPDATE users SET name = ?, email = ? WHERE id = ?`, [name, email, id], function(err) {
+    if (err) {
+      return res.status(400).json({ error: "Este e-mail já está em uso ou é inválido." });
+    }
+    // AJUSTE: Adicionado plan_tier no retorno
+    db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [id], (err, user) => res.json(user));
   });
 });
 

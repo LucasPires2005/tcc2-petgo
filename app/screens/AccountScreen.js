@@ -5,7 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function AccountScreen() {
+// ADIÇÃO: Recebendo a prop { navigation } para podermos trocar de tela
+export default function AccountScreen({ navigation }) {
   const { user, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium } = useContext(AuthContext);
   
   // --- ESTADOS DOS MODAIS ---
@@ -131,24 +132,30 @@ export default function AccountScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           
           <View style={styles.profileHeader}>
-            <View style={[styles.avatar, user?.is_premium === 1 ? styles.avatarPremium : null]}>
+            <View style={[styles.avatar, user?.is_premium === 1 || user?.plan_tier > 0 ? styles.avatarPremium : null]}>
               <Ionicons name="person" size={55} color="#FFF" />
               <TouchableOpacity style={styles.editBadgeAvatar} onPress={() => setEditModal(true)}>
                  <Ionicons name="pencil" size={14} color="#FFF" />
               </TouchableOpacity>
-              {user?.is_premium === 1 ? (
+              {user?.is_premium === 1 || user?.plan_tier > 0 ? (
                 <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={22} color="#4A90E2" /></View>
               ) : null}
             </View>
 
             <View style={styles.userNameRow}>
                <Text style={styles.userName}>{String(user?.name || 'Usuário')}</Text>
-               {user?.is_premium === 1 && <Text style={{fontSize: 20}}> 💎</Text>}
+               {(user?.is_premium === 1 || user?.plan_tier > 0) && <Text style={{fontSize: 20}}> 💎</Text>}
             </View>
             <Text style={styles.userEmail}>{String(user?.email || '')}</Text>
             
             <View style={styles.memberBadge}>
-              <Text style={styles.memberBadgeText}>{user?.is_premium === 1 ? "Membro PRO 💎" : "Membro Voluntário 🐾"}</Text>
+              <Text style={styles.memberBadgeText}>
+                {/* LÓGICA ATUALIZADA: Mostra o selo correto baseado no plan_tier */}
+                {user?.plan_tier === 3 ? "Guardião 🛡️" : 
+                 user?.plan_tier === 2 ? "Protetor 🦸" :
+                 user?.plan_tier === 1 ? "Amigo 🤝" :
+                 user?.is_premium === 1 ? "Membro PRO 💎" : "Membro Voluntário 🐾"}
+              </Text>
             </View>
             
             <View style={styles.statsRow}>
@@ -157,10 +164,10 @@ export default function AccountScreen() {
                 <Text style={styles.statText}>{String(user?.coins || 0)} PetCoins</Text>
               </View>
 
-              <View style={[styles.statBox, user?.is_premium === 1 ? styles.premiumBadgeBox : null]}>
-                <Ionicons name="star" size={18} color={user?.is_premium === 1 ? "#B8860B" : "#999"} />
-                <Text style={[styles.statText, user?.is_premium === 1 ? {color: '#B8860B'} : null]}>
-                  {user?.is_premium === 1 ? 'PREMIUM' : 'BÁSICO'}
+              <View style={[styles.statBox, (user?.is_premium === 1 || user?.plan_tier > 0) ? styles.premiumBadgeBox : null]}>
+                <Ionicons name="star" size={18} color={(user?.is_premium === 1 || user?.plan_tier > 0) ? "#B8860B" : "#999"} />
+                <Text style={[styles.statText, (user?.is_premium === 1 || user?.plan_tier > 0) ? {color: '#B8860B'} : null]}>
+                  {user?.plan_tier > 0 ? 'ASSINANTE' : user?.is_premium === 1 ? 'PREMIUM' : 'BÁSICO'}
                 </Text>
               </View>
 
@@ -175,7 +182,20 @@ export default function AccountScreen() {
             </View>
           </View>
 
-          {!user?.is_premium ? (
+          {/* NOVO: BANNER DE PLANOS DE ASSINATURA */}
+          <TouchableOpacity 
+            style={[styles.upgradeCard, { backgroundColor: '#8E44AD', marginTop: 15, marginBottom: 5 }]} 
+            onPress={() => navigation.navigate('Subscription')} // <-- ALTERADO AQUI PARA NAVEGAR
+          >
+            <Ionicons name="card" size={24} color="#FFF" />
+            <View style={{flex: 1, marginLeft: 15}}>
+              <Text style={styles.upgradeTitle}>Planos de Assinatura</Text>
+              <Text style={styles.upgradeSubtitle}>Conheça os benefícios e apoie a causa</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#FFF" />
+          </TouchableOpacity>
+
+          {!user?.is_premium && user?.plan_tier === 0 ? (
             <TouchableOpacity style={styles.upgradeCard} onPress={() => buyPremium()}>
               <Ionicons name="diamond" size={24} color="#FFF" />
               <View style={{flex: 1, marginLeft: 15}}>

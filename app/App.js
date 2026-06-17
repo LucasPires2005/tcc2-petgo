@@ -12,6 +12,8 @@ import MapScreen from './screens/MapScreen';
 import NearbyScreen from './screens/NearbyScreen';
 import RescuedScreen from './screens/RescuedScreen';
 import AccountScreen from './screens/AccountScreen';
+// ADIÇÃO: Importando a nova tela de Planos
+import SubscriptionScreen from './screens/SubscriptionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -45,7 +47,11 @@ function Routes() {
   return (
     <NavigationContainer>
       {user ? (
-        <Tabs />
+        // ADIÇÃO: Envolvendo as Tabs em um Stack para podermos navegar para a SubscriptionScreen
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="MainTabs" component={Tabs} />
+          <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+        </Stack.Navigator>
       ) : (
         <Stack.Navigator>
           <Stack.Screen name="Login" component={LoginScreen} />

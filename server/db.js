@@ -54,6 +54,9 @@ db.serialize(() => {
   
   // ADIÇÃO: Coluna de Urgência para o Semáforo Visual
   db.run("ALTER TABLE animals ADD COLUMN urgency TEXT DEFAULT 'Estável'", () => {});
+
+  // ADIÇÃO: Coluna para os novos Planos de Assinatura (0=Gratuito, 1=Amigo, 2=Protetor, 3=Guardião)
+  db.run("ALTER TABLE users ADD COLUMN plan_tier INTEGER DEFAULT 0", () => {});
 });
 
 module.exports = db;

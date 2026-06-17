@@ -42,6 +42,27 @@ export function AuthProvider({ children }) {
     } catch (e) { return false; }
   }
 
+  // ADIÇÃO: Função para o usuário assinar um dos novos planos
+  async function subscribeToPlan(planTier) {
+    try {
+      const response = await fetch(`${BASE_URL}/auth/subscribe-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, planTier }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data.user);
+        Alert.alert("Sucesso! 🎉", data.message);
+        return true;
+      }
+      return false;
+    } catch (e) { 
+      Alert.alert("Erro", "Falha ao processar assinatura.");
+      return false; 
+    }
+  }
+
   async function donateCoins(amount) {
     try {
       const response = await fetch(`${BASE_URL}/auth/donate`, {
@@ -126,10 +147,16 @@ export function AuthProvider({ children }) {
       const data = await res.json();
       if (res.ok) { 
         setUser(data); 
+        Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
         return true; 
+      } else {
+        Alert.alert("Erro ao Atualizar", data.error || "Falha ao atualizar perfil.");
+        return false;
       }
-      return false;
-    } catch (e) { return false; }
+    } catch (e) { 
+      Alert.alert("Erro", "Falha na conexão com o servidor.");
+      return false; 
+    }
   }
 
   async function changePassword(currentPassword, newPassword) {
@@ -147,7 +174,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
-      buyPremium, donateCoins, 
+      buyPremium, donateCoins, subscribeToPlan, // <-- ADICIONADO AQUI
       logout: () => setUser(null)
     }}>
       {children}
