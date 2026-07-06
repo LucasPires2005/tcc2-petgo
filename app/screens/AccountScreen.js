@@ -254,6 +254,24 @@ export default function AccountScreen({ navigation }) {
             ))}
           </View>
 
+          {/* NOVO: BANNER PARA ONGS */}
+          <View style={styles.partnersSection}>
+            <TouchableOpacity 
+              style={[styles.upgradeCard, { backgroundColor: '#27AE60', marginHorizontal: 0, marginTop: 5, marginBottom: 10 }]} 
+              onPress={() => Alert.alert(
+                'Parceria Institucional 🏢', 
+                'Representa uma ONG ou abrigo de animais? Envie um e-mail para parceiros@petgo.com com o seu CNPJ para validarmos e liberarmos o seu painel de gestão exclusivo.'
+              )}
+            >
+              <Ionicons name="business" size={24} color="#FFF" />
+              <View style={{flex: 1, marginLeft: 15}}>
+                <Text style={styles.upgradeTitle}>Representa uma ONG?</Text>
+                <Text style={styles.upgradeSubtitle}>Torne-se parceira e receba apadrinhamentos</Text>
+              </View>
+              <Ionicons name="mail" size={20} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity style={styles.logoutButton} onPress={logout}><Text style={styles.logoutText}>Sair da Conta</Text></TouchableOpacity>
           <View style={{height: 30}} />
         </ScrollView>
