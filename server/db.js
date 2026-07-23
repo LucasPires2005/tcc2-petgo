@@ -1,62 +1,66 @@
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./database.sqlite');
+const { Pool } = require('pg');
 
-db.serialize(() => {
-  // Tabela de Usuários (Com Moedas e Premium)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT UNIQUE,
-      password TEXT,
-      coins INTEGER DEFAULT 0,
-      is_premium INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Tabela de Animais (ADICIONADA COLUNA rescue_image_url)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS animals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      species TEXT,
-      breed TEXT,
-      health TEXT,
-      latitude REAL,
-      longitude REAL,
-      image_url TEXT,
-      rescue_image_url TEXT, 
-      userId INTEGER,
-      status INTEGER DEFAULT 0,
-      rescuer_name TEXT,
-      rescuer_contact TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (userId) REFERENCES users (id)
-    )
-  `);
-
-  // Tabela de Parceiros
-  db.run(`
-    CREATE TABLE IF NOT EXISTS partners (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      description TEXT,
-      icon TEXT
-    )
-  `);
-
-  // NOVO: Migrations que não quebram o servidor (Ignoram erro se a coluna já existir)
-  db.run("ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0", () => {});
-  db.run("ALTER TABLE users ADD COLUMN is_premium INTEGER DEFAULT 0", () => {});
-  db.run("ALTER TABLE animals ADD COLUMN userId INTEGER", () => {});
-  db.run("ALTER TABLE animals ADD COLUMN rescue_image_url TEXT", () => {}); 
-  
-  // ADIÇÃO: Coluna de Urgência para o Semáforo Visual
-  db.run("ALTER TABLE animals ADD COLUMN urgency TEXT DEFAULT 'Estável'", () => {});
-
-  // ADIÇÃO: Coluna para os novos Planos de Assinatura (0=Gratuito, 1=Amigo, 2=Protetor, 3=Guardião)
-  db.run("ALTER TABLE users ADD COLUMN plan_tier INTEGER DEFAULT 0", () => {});
+// Conexão com o banco de dados na nuvem (Supabase)
+const pool = new Pool({
+  connectionString: 'postgresql://postgres:rCOuOdCbWJjNQJlf@db.ioxunltwsawqafaabvmt.supabase.co:5432/postgres',
+  ssl: {
+    rejectUnauthorized: false // Necessário para conexões em nuvem
+  }
 });
+
+// Testa a conexão ao iniciar
+pool.connect((err, client, release) => {
+  if (err) {
+    return console.error('Erro ao conectar ao banco de dados Supabase:', err.stack);
+  }
+  console.log('✅ Conectado ao banco de dados Supabase com sucesso!');
+  release();
+});
+
+// ==========================================
+// ADAPTADOR SQLITE -> POSTGRES
+// 
+// ==========================================
+
+// Função que converte as interrogações (?) do SQLite para o formato do Postgres ($1, $2, etc)
+const convertQuery = (sql) => {
+  let i = 1;
+  return sql.replace(/\?/g, () => `$${i++}`);
+};
+
+const db = {
+  // Equivalente ao db.run do SQLite (Para INSERT, UPDATE, DELETE)
+  run: (sql, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    pool.query(convertQuery(sql), params || [], (err, res) => {
+      if (callback) callback(err);
+    });
+  },
+
+  // Equivalente ao db.get do SQLite (Para buscar 1 único registro)
+  get: (sql, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    pool.query(convertQuery(sql), params || [], (err, res) => {
+      if (callback) callback(err, res && res.rows.length > 0 ? res.rows[0] : null);
+    });
+  },
+
+  // Equivalente ao db.all do SQLite (Para buscar uma lista de registros)
+  all: (sql, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    pool.query(convertQuery(sql), params || [], (err, res) => {
+      if (callback) callback(err, res ? res.rows : []);
+    });
+  }
+};
 
 module.exports = db;
