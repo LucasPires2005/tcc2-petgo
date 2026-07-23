@@ -2,7 +2,14 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// ROTA: COMPRA DE PRODUTOS DA LOJA (Coins)
+// Configuração do Mercado Pago (com Preference e Payment)
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const client = new MercadoPagoConfig({ accessToken: 'APP_USR-3777985475151365-072309-94db5b3b3dee1edd08fdf8fb7b78f58a-3563512986' });
+
+// ==========================================
+// ROTAS DO APLICATIVO
+// ==========================================
+
 router.post('/buy-product', (req, res) => {
   const { userId, cost, productName } = req.body;
   db.get('SELECT coins FROM users WHERE id = ?', [userId], (err, user) => {
@@ -20,7 +27,6 @@ router.post('/buy-product', (req, res) => {
 router.post('/upgrade-pro', (req, res) => {
   const { userId } = req.body;
   const cost = 50;
-  // AJUSTE: Adicionado plan_tier no retorno
   db.get('SELECT coins, is_premium FROM users WHERE id = ?', [userId], (err, user) => {
     if (err || !user) return res.status(404).json({ error: "Usuário não encontrado" });
     if (user.is_premium === 1) return res.status(400).json({ error: "Você já é PRO" });
@@ -32,19 +38,13 @@ router.post('/upgrade-pro', (req, res) => {
   });
 });
 
-// NOVO: ROTA PARA ATIVAR PLANOS DE ASSINATURA
+// Essa é a rota que seu botão "Já Paguei" vai chamar para salvar a apresentação!
 router.post('/subscribe-plan', (req, res) => {
-  // planTier: 1 (Amigo), 2 (Protetor), 3 (Guardião)
   const { userId, planTier } = req.body; 
-
   db.get('SELECT id FROM users WHERE id = ?', [userId], (err, user) => {
     if (err || !user) return res.status(404).json({ error: "Usuário não encontrado" });
-
-    // Atualiza o plano do usuário no banco
     db.run('UPDATE users SET plan_tier = ? WHERE id = ?', [planTier, userId], (err) => {
       if (err) return res.status(500).json({ error: "Erro ao ativar assinatura" });
-
-      // Retorna o usuário atualizado com a nova coluna plan_tier
       db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [userId], (err, updatedUser) => {
         res.json({ success: true, message: "Plano ativado com sucesso! 🎉", user: updatedUser });
       });
@@ -77,7 +77,6 @@ router.post('/redeem', (req, res) => {
 
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
-  // AJUSTE: Adicionado plan_tier na consulta de login
   db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE email = ? AND password = ?', [email, password], (err, user) => {
     if (err || !user) return res.status(401).json({ error: "Credenciais inválidas" });
     res.json(user);
@@ -85,7 +84,6 @@ router.post('/login', (req, res) => {
 });
 
 router.get('/update-status/:id', (req, res) => {
-  // AJUSTE: Adicionado plan_tier na atualização de status
   db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [req.params.id], (err, user) => {
     if (user) res.json(user);
     else res.status(404).json({ error: "Não encontrado" });
@@ -95,10 +93,7 @@ router.get('/update-status/:id', (req, res) => {
 router.put('/update', (req, res) => {
   const { id, name, email } = req.body;
   db.run(`UPDATE users SET name = ?, email = ? WHERE id = ?`, [name, email, id], function(err) {
-    if (err) {
-      return res.status(400).json({ error: "Este e-mail já está em uso ou é inválido." });
-    }
-    // AJUSTE: Adicionado plan_tier no retorno
+    if (err) return res.status(400).json({ error: "Este e-mail já está em uso ou é inválido." });
     db.get('SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?', [id], (err, user) => res.json(user));
   });
 });
@@ -118,10 +113,74 @@ router.delete('/delete/:id', (req, res) => {
 router.post('/register', (req, res) => {
   const { name, email, password } = req.body;
   db.run(`INSERT INTO users (name, email, password) VALUES (?, ?, ?)`, [name, email, password], function (err) {
-    // ADIÇÃO: Verificação de erro para e-mail já existente
     if (err) return res.status(400).json({ error: "Este e-mail já está em uso em outra conta." });
     res.json({ id: this.lastID, message: "Criado!" });
   });
+});
+
+// ==========================================
+// INTEGRACAO MERCADO PAGO + WEBHOOK
+// ==========================================
+
+router.post('/create-preference', async (req, res) => {
+  try {
+    const { title, price, planTier, userId } = req.body;
+    const baseUrl = `https://${req.headers.host}`;
+
+    const preference = new Preference(client);
+    const response = await preference.create({
+      body: {
+        items: [
+          {
+            id: String(planTier),
+            title: title,
+            unit_price: Number(price),
+            quantity: 1,
+            currency_id: 'BRL'
+          }
+        ],
+        external_reference: `${userId}_${planTier}`,
+        notification_url: `${baseUrl}/auth/webhook`
+      }
+    });
+
+    // PULO DO GATO: Prioriza o sandbox_init_point para ambiente de testes
+    const checkoutUrl = response.sandbox_init_point || response.init_point;
+    res.json({ id: response.id, init_point: checkoutUrl });
+
+  } catch (error) {
+    console.error("Erro ao gerar pagamento:", error);
+    res.status(500).json({ error: "Falha ao comunicar com o Mercado Pago" });
+  }
+});
+
+// WEBHOOK QUE RECEBE A NOTIFICAÇÃO DO PAGAMENTO
+router.post('/webhook', async (req, res) => {
+  const paymentId = req.query['data.id'] || (req.body.data && req.body.data.id);
+  const type = req.query.type || req.body.type;
+
+  if (type === 'payment' && paymentId) {
+    try {
+      const payment = new Payment(client);
+      const paymentData = await payment.get({ id: paymentId });
+
+      if (paymentData.status === 'approved') {
+        const extRef = paymentData.external_reference;
+        if (extRef) {
+          const [userId, planTier] = extRef.split('_');
+          
+          db.run('UPDATE users SET plan_tier = ? WHERE id = ?', [planTier, userId], (err) => {
+            if (!err) {
+              console.log(`\n=======================================\n🚀 WEBHOOK SUCESSO: Usuário ID ${userId} subiu para o Plano ${planTier}!\n=======================================\n`);
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Erro no Webhook:', err);
+    }
+  }
+  res.sendStatus(200);
 });
 
 module.exports = router;

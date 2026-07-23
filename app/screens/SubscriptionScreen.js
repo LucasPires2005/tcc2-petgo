@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
 export default function SubscriptionScreen({ navigation }) {
+  // Adicionamos o subscribeToPlan de volta aqui para liberar a assinatura
   const { subscribeToPlan, user } = useContext(AuthContext);
+  const API_BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
 
   const plans = [
     {
@@ -12,7 +14,7 @@ export default function SubscriptionScreen({ navigation }) {
       name: 'Plano Amigo',
       price: 'R$ 19,90',
       period: '/mês',
-      color: '#4A90E2', // Azul PetGo
+      color: '#4A90E2',
       icon: 'paw',
       benefits: [
         'Multiplicador 1x PetCoins',
@@ -26,7 +28,7 @@ export default function SubscriptionScreen({ navigation }) {
       name: 'Plano Protetor',
       price: 'R$ 39,90',
       period: '/mês',
-      color: '#8E44AD', // Roxo (Destaque)
+      color: '#8E44AD',
       icon: 'shield-checkmark',
       benefits: [
         'Multiplicador 2x PetCoins',
@@ -40,7 +42,7 @@ export default function SubscriptionScreen({ navigation }) {
       name: 'Plano Guardião',
       price: 'R$ 79,90',
       period: '/mês',
-      color: '#F39C12', // Dourado (VIP)
+      color: '#F39C12',
       icon: 'diamond',
       benefits: [
         'Multiplicador 3x PetCoins',
@@ -54,15 +56,60 @@ export default function SubscriptionScreen({ navigation }) {
   const handleSubscribe = (plan) => {
     Alert.alert(
       `Assinar ${plan.name}`,
-      `Deseja prosseguir com a assinatura de ${plan.price}${plan.period}? Em breve, você será redirecionado para o Mercado Pago.`,
+      `Deseja ser redirecionado para o ambiente de pagamentos para finalizar a assinatura de ${plan.price}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
-          text: 'Confirmar Teste', 
+          text: 'Ir para Pagamento', 
           onPress: async () => {
-            const success = await subscribeToPlan(plan.tier);
-            if (success) {
-              navigation.goBack(); // Volta pro perfil após assinar
+            try {
+              const cleanPrice = plan.price.replace('R$ ', '').replace(',', '.');
+
+              const response = await fetch(`${API_BASE_URL}/auth/create-preference`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: plan.name,
+                  price: cleanPrice,
+                  planTier: plan.tier,
+                  userId: user.id
+                })
+              });
+              
+              const data = await response.json();
+
+              if (data.init_point) {
+                // 1. Abre a tela do Mercado Pago para a demonstração
+                console.log("LINK DO SANDBOX:", data.init_point);
+                Linking.openURL(data.init_point);
+
+                // 2. Controla o fluxo da sua apresentação manualmente com o delay!
+                setTimeout(() => {
+                  Alert.alert(
+                    'Confirmação de Assinatura',
+                    'A janela do Mercado Pago foi aberta. Após a simulação, confirme abaixo para ativar seus benefícios.',
+                    [
+                      { text: 'Ainda não concluí', style: 'cancel' },
+                      {
+                        text: 'Já Paguei! 💎',
+                        onPress: async () => {
+                          // Aqui nós disparamos a atualização direto no banco para a banca ver!
+                          const success = await subscribeToPlan(plan.tier);
+                          if (success) {
+                            navigation.goBack();
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }, 1500);
+
+              } else {
+                Alert.alert('Erro', 'Não foi possível gerar o link de pagamento.');
+              }
+
+            } catch (error) {
+              Alert.alert('Erro', 'Falha na conexão com o servidor.');
             }
           }
         }
