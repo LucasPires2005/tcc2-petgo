@@ -6,7 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 export default function SubscriptionScreen({ navigation }) {
   // Adicionamos o subscribeToPlan de volta aqui para liberar a assinatura
   const { subscribeToPlan, user } = useContext(AuthContext);
-  const API_BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
+  const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
   const plans = [
     {

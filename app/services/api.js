@@ -1,4 +1,4 @@
-const BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
+const BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
 export async function getAnimals() {
   try {

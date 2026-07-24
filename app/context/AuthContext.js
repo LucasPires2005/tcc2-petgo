@@ -6,7 +6,7 @@ export const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [animals, setAnimals] = useState([]);
-  const BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
+  const BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
   async function fetchAnimals() {
     try {

@@ -22,7 +22,7 @@ export default function AccountScreen({ navigation }) {
   const [newPass, setNewPass] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
 
-  const API_BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
+  const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
   useFocusEffect(useCallback(() => { refreshUserData(); }, []));
 

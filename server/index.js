@@ -17,10 +17,10 @@ app.use('/auth', authRoutes);
 
 app.get('/', (req, res) => res.send('API PetGo 2.0 Rodando 🚀'));
 
-const PORT = 3000;
+// A porta agora é dinâmica para o Render conseguir subir o serviço
+const PORT = process.env.PORT || 3000;
 
-// O servidor continua ouvindo em '0.0.0.0' para aceitar o túnel do ngrok
+// O servidor escuta as requisições na porta correta
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor Local: http://localhost:${PORT}`);
-  console.log(`🌍 Túnel Público: https://subpeltate-gene-nonpracticed.ngrok-free.dev`);
+  console.log(`✅ Servidor Rodando na porta: ${PORT}`);
 });

@@ -47,7 +47,7 @@ export default function MapScreen() {
   const [rescuerContact, setRescuerContact] = useState('');
   const [rescueImage, setRescueImage] = useState(null); 
 
-  const API_BASE_URL = 'https://subpeltate-gene-nonpracticed.ngrok-free.dev';
+  const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
   const API_URL = `${API_BASE_URL}/animals`;
 
   useEffect(() => { getLocation(); fetchAnimals(); }, []);

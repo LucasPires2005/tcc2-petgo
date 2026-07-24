@@ -5,7 +5,8 @@ const pool = new Pool({
   connectionString: 'postgresql://postgres:rCOuOdCbWJjNQJlf@db.ioxunltwsawqafaabvmt.supabase.co:5432/postgres',
   ssl: {
     rejectUnauthorized: false // Necessário para conexões em nuvem
-  }
+  },
+  family: 4 // FORÇA O USO DE IPV4 (Resolve o erro ENETUNREACH no Render)
 });
 
 // Testa a conexão ao iniciar
@@ -19,7 +20,6 @@ pool.connect((err, client, release) => {
 
 // ==========================================
 // ADAPTADOR SQLITE -> POSTGRES
-// 
 // ==========================================
 
 // Função que converte as interrogações (?) do SQLite para o formato do Postgres ($1, $2, etc)
