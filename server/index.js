@@ -24,3 +24,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor Rodando na porta: ${PORT}`);
 });
+
+// Teste de migração para o novo repositório pessoal - PetGo
