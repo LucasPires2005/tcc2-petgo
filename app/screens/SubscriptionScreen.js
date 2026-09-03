@@ -1,12 +1,19 @@
-import React, { useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Linking } from 'react-native';
+import React, { useContext, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
 export default function SubscriptionScreen({ navigation }) {
-  // Adicionamos o subscribeToPlan de volta aqui para liberar a assinatura
-  const { subscribeToPlan, user } = useContext(AuthContext);
+  const { user, refreshUserData } = useContext(AuthContext);
   const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
+  const pollingRef = useRef(null);
+
+  // Limpa o temporizador se a tela for desmontada
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
 
   const plans = [
     {
@@ -53,6 +60,28 @@ export default function SubscriptionScreen({ navigation }) {
     }
   ];
 
+  // Inicia checagem automática em segundo plano até o plano mudar
+  const startPollingPayment = (targetTier) => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/update-status/${user.id}`);
+        const updatedUser = await response.json();
+
+        if (updatedUser && updatedUser.plan_tier === targetTier) {
+          clearInterval(pollingRef.current);
+          if (refreshUserData) await refreshUserData();
+          
+          Alert.alert('Sucesso! 🎉', `Seu plano foi ativado automaticamente!`);
+          navigation.goBack();
+        }
+      } catch (err) {
+        console.log('Aguardando confirmação do pagamento...', err);
+      }
+    }, 3000); // Checa a cada 3 segundos
+  };
+
   const handleSubscribe = (plan) => {
     Alert.alert(
       `Assinar ${plan.name}`,
@@ -79,31 +108,11 @@ export default function SubscriptionScreen({ navigation }) {
               const data = await response.json();
 
               if (data.init_point) {
-                // 1. Abre a tela do Mercado Pago para a demonstração
                 console.log("LINK DO SANDBOX:", data.init_point);
-                Linking.openURL(data.init_point);
+                await Linking.openURL(data.init_point);
 
-                // 2. Controla o fluxo da apresentação manualmente com o delay!
-                setTimeout(() => {
-                  Alert.alert(
-                    'Confirmação de Assinatura',
-                    'A janela do Mercado Pago foi aberta. Após a simulação, confirme abaixo para ativar seus benefícios.',
-                    [
-                      { text: 'Ainda não concluí', style: 'cancel' },
-                      {
-                        text: 'Já Paguei! 💎',
-                        onPress: async () => {
-                          // Aqui nós disparamos a atualização direto no banco para a banca ver!
-                          const success = await subscribeToPlan(plan.tier);
-                          if (success) {
-                            navigation.goBack();
-                          }
-                        }
-                      }
-                    ]
-                  );
-                }, 1500);
-
+                // Dispara o monitoramento automático (sem botão de 'Já Paguei')
+                startPollingPayment(plan.tier);
               } else {
                 Alert.alert('Erro', 'Não foi possível gerar o link de pagamento.');
               }

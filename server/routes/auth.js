@@ -170,7 +170,13 @@ router.post('/create-preference', async (req, res) => {
           }
         ],
         external_reference: `${userId}_${planTier}`,
-        notification_url: `${baseUrl}/auth/webhook`
+        notification_url: `${baseUrl}/auth/webhook`,
+        back_urls: {
+          success: `${baseUrl}/auth/payment-success?userId=${userId}&planTier=${planTier}`,
+          failure: `${baseUrl}/auth/payment-failure`,
+          pending: `${baseUrl}/auth/payment-pending`
+        },
+        auto_return: "approved"
       }
     });
 
@@ -209,6 +215,60 @@ router.post('/webhook', async (req, res) => {
     }
   }
   res.sendStatus(200);
+});
+
+// ==========================================
+// ROTAS ADICIONADAS DE RETORNO DO CHECKOUT
+// ==========================================
+
+router.get('/payment-success', (req, res) => {
+  const { userId, planTier } = req.query;
+  if (userId && planTier) {
+    db.run('UPDATE users SET plan_tier = ? WHERE id = ?', [planTier, userId], (err) => {
+      if (!err) {
+        console.log(`\n=======================================\n🚀 RETORNO SUCESSO: Usuário ID ${userId} subiu para o Plano ${planTier}!\n=======================================\n`);
+      }
+    });
+  }
+  res.send(`
+    <html>
+      <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; text-align:center;">
+        <div>
+          <h1 style="color: #27ae60;">Pagamento Aprovado! 🎉</h1>
+          <p>Sua assinatura foi ativada com sucesso.</p>
+          <p>Você já pode fechar esta janela e voltar para o aplicativo <b>PetGo</b>.</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+router.get('/payment-failure', (req, res) => {
+  res.send(`
+    <html>
+      <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; text-align:center;">
+        <div>
+          <h1 style="color: #e74c3c;">Pagamento Não Concluído ❌</h1>
+          <p>Houve um problema ao processar seu pagamento.</p>
+          <p>Por favor, volte ao aplicativo e tente novamente.</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+router.get('/payment-pending', (req, res) => {
+  res.send(`
+    <html>
+      <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; text-align:center;">
+        <div>
+          <h1 style="color: #f39c12;">Pagamento Pendente ⏳</h1>
+          <p>Seu pagamento está aguardando confirmação.</p>
+          <p>Assim que for aprovado, seu plano será liberado no PetGo.</p>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 module.exports = router;
