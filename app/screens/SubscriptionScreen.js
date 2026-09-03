@@ -83,7 +83,7 @@ export default function SubscriptionScreen({ navigation }) {
                 console.log("LINK DO SANDBOX:", data.init_point);
                 Linking.openURL(data.init_point);
 
-                // 2. Controla o fluxo da sua apresentação manualmente com o delay!
+                // 2. Controla o fluxo da apresentação manualmente com o delay!
                 setTimeout(() => {
                   Alert.alert(
                     'Confirmação de Assinatura',

@@ -42,7 +42,6 @@ export function AuthProvider({ children }) {
     } catch (e) { return false; }
   }
 
-  // ADIÇÃO: Função para o usuário assinar um dos novos planos
   async function subscribeToPlan(planTier) {
     try {
       const response = await fetch(`${BASE_URL}/auth/subscribe-plan`, {
@@ -113,7 +112,6 @@ export function AuthProvider({ children }) {
     } catch (error) { Alert.alert('Erro', 'Conexão falhou.'); }
   }
 
-  // ADIÇÃO: Cadastro com aviso de e-mail já existente
   async function register(name, email, password) {
     const cleanEmail = email.trim().toLowerCase();
     try {
@@ -170,11 +168,32 @@ export function AuthProvider({ children }) {
     } catch (e) { return false; }
   }
 
+  async function deleteAccount() {
+    if (!user) return false;
+    try {
+      const response = await fetch(`${BASE_URL}/auth/delete/${user.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        setUser(null);
+        return true;
+      } else {
+        Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente.');
+        return false;
+      }
+    } catch (e) {
+      Alert.alert('Erro', 'Falha na conexão com o servidor.');
+      return false;
+    }
+  }
+
   return (
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
-      buyPremium, donateCoins, subscribeToPlan, // <-- ADICIONADO AQUI
+      buyPremium, donateCoins, subscribeToPlan, deleteAccount,
       logout: () => setUser(null)
     }}>
       {children}

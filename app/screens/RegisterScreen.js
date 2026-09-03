@@ -1,7 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, ScrollView, SafeAreaView } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-// ADIÇÃO: Importando ícones para o Checkbox
 import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen({ navigation }) {
@@ -10,7 +9,6 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // ADIÇÃO: Estados para gerenciar os Termos de Uso
   const [agreed, setAgreed] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
 
@@ -19,12 +17,17 @@ export default function RegisterScreen({ navigation }) {
       return Alert.alert('Atenção', 'Preencha todos os campos para criar sua conta.');
     }
 
-    // ADIÇÃO: Validação de aceite dos termos
+    // Validação do formato de e-mail via Expressão Regular (Regex)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return Alert.alert('E-mail Inválido', 'Por favor, informe um endereço de e-mail válido (ex: nome@dominio.com).');
+    }
+
     if (!agreed) {
       return Alert.alert('Atenção', 'Você precisa ler e concordar com os Termos de Uso para criar uma conta.');
     }
 
-    const success = await register(name, email, password);
+    const success = await register(name, email.trim(), password);
     
     if (success) {
       navigation.goBack(); 
@@ -58,7 +61,6 @@ export default function RegisterScreen({ navigation }) {
         onChangeText={setPassword}
       />
 
-      {/* ADIÇÃO: Componente de Checkbox dos Termos de Uso */}
       <View style={styles.checkboxContainer}>
         <TouchableOpacity onPress={() => setAgreed(!agreed)} style={styles.checkbox}>
           <Ionicons 
@@ -83,7 +85,6 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.linkText}>Já tenho conta</Text>
       </TouchableOpacity>
 
-      {/* ADIÇÃO: Modal com o texto dos Termos de Uso */}
       <Modal visible={termsVisible} animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
           <View style={styles.modalHeader}>
@@ -144,7 +145,6 @@ const styles = StyleSheet.create({
   link: { marginTop: 20, alignItems: 'center' },
   linkText: { color: '#666' },
 
-  // ADIÇÃO: Novos estilos para Checkbox e Modal
   checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 5 },
   checkbox: { marginRight: 10 },
   checkboxText: { fontSize: 14, color: '#666', flex: 1 },

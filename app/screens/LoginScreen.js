@@ -6,7 +6,8 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   KeyboardAvoidingView, 
-  Platform 
+  Platform,
+  Alert
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 
@@ -14,6 +15,20 @@ export default function LoginScreen({ navigation }) {
   const { login } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const handleLogin = () => {
+    if (!email || !password) {
+      return Alert.alert('Atenção', 'Preencha todos os campos para entrar.');
+    }
+
+    // Validação do formato de e-mail (exige o @ e domínio válido)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return Alert.alert('E-mail Inválido', 'Por favor, insira um e-mail no formato correto (ex: usuario@email.com).');
+    }
+
+    login(email.trim(), password);
+  };
 
   return (
     <KeyboardAvoidingView 
@@ -44,7 +59,7 @@ export default function LoginScreen({ navigation }) {
 
         <TouchableOpacity 
           style={styles.buttonPrimary} 
-          onPress={() => login(email, password)}
+          onPress={handleLogin}
         >
           <Text style={styles.buttonText}>Entrar</Text>
         </TouchableOpacity>
@@ -68,7 +83,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     padding: 30,
-    justifyContent: 'center',
+    justifyContent: 'center', // Corrigido para centralizar perfeitamente no meio da tela
     alignItems: 'stretch',
   },
   logo: {

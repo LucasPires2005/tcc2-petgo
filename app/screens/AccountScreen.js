@@ -5,9 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
-// ADIÇÃO: Recebendo a prop { navigation } para podermos trocar de tela
 export default function AccountScreen({ navigation }) {
-  const { user, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium } = useContext(AuthContext);
+  const { user, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium, deleteAccount } = useContext(AuthContext);
   
   // --- ESTADOS DOS MODAIS ---
   const [editModal, setEditModal] = useState(false);
@@ -26,7 +25,6 @@ export default function AccountScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { refreshUserData(); }, []));
 
-  // --- SINCRONIZAÇÃO DE DADOS ---
   useEffect(() => {
     if (user) {
       setNewName(user.name || '');
@@ -41,16 +39,13 @@ export default function AccountScreen({ navigation }) {
     }
   };
 
-  // ADIÇÃO: Função de senha com avisos de erro detalhados
   const handlePasswordChange = async () => {
-    // Caso 1: Campos vazios
     if (!currPass || !newPass || !confirmPwd) {
-        return Alert.alert("Atenção", "Preencha todos os campos de senha.");
+      return Alert.alert("Atenção", "Preencha todos os campos de senha.");
     }
     
-    // Caso 2: Senhas novas não batem (ex: 2 e 3)
     if (newPass !== confirmPwd) {
-        return Alert.alert("Erro", "A confirmação da nova senha não coincide.");
+      return Alert.alert("Erro", "A confirmação da nova senha não coincide.");
     }
 
     const success = await changePassword(currPass, newPass);
@@ -60,9 +55,28 @@ export default function AccountScreen({ navigation }) {
       setPwdModal(false);
       setCurrPass(''); setNewPass(''); setConfirmPwd('');
     } else {
-      // Caso 3: Senha atual ("1") está incorreta no banco
       Alert.alert("Erro", "A senha atual digitada está incorreta.");
     }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Excluir Conta",
+      "Tem certeza que deseja excluir permanentemente sua conta? Esta ação não pode ser desfeita.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Excluir Definitivamente", 
+          style: "destructive", 
+          onPress: async () => {
+            const success = await deleteAccount();
+            if (success) {
+              Alert.alert("Conta Excluída", "Sua conta foi removida com sucesso.");
+            }
+          } 
+        }
+      ]
+    );
   };
 
   const storeItems = [
@@ -150,7 +164,6 @@ export default function AccountScreen({ navigation }) {
             
             <View style={styles.memberBadge}>
               <Text style={styles.memberBadgeText}>
-                {/* LÓGICA ATUALIZADA: Mostra o selo correto baseado no plan_tier */}
                 {user?.plan_tier === 3 ? "Guardião 🛡️" : 
                  user?.plan_tier === 2 ? "Protetor 🦸" :
                  user?.plan_tier === 1 ? "Amigo 🤝" :
@@ -171,10 +184,8 @@ export default function AccountScreen({ navigation }) {
                 </Text>
               </View>
 
-              {/* NOVO: Contador de Impacto (Resgates realizados pelo usuário) */}
               <View style={styles.statBox}>
                 <Ionicons name="checkmark-done-circle" size={18} color="#2ECC71" />
-                {/* Filtra a lista para contar apenas quem tem status 1 (Salvo) */}
                 <Text style={styles.statText}>
                 {myRescues.filter(animal => animal.status === 1).length} Salvos
                 </Text>
@@ -182,10 +193,9 @@ export default function AccountScreen({ navigation }) {
             </View>
           </View>
 
-          {/* NOVO: BANNER DE PLANOS DE ASSINATURA */}
           <TouchableOpacity 
             style={[styles.upgradeCard, { backgroundColor: '#8E44AD', marginTop: 15, marginBottom: 5 }]} 
-            onPress={() => navigation.navigate('Subscription')} // <-- ALTERADO AQUI PARA NAVEGAR
+            onPress={() => navigation.navigate('Subscription')}
           >
             <Ionicons name="card" size={24} color="#FFF" />
             <View style={{flex: 1, marginLeft: 15}}>
@@ -254,7 +264,6 @@ export default function AccountScreen({ navigation }) {
             ))}
           </View>
 
-          {/* NOVO: BANNER PARA ONGS */}
           <View style={styles.partnersSection}>
             <TouchableOpacity 
               style={[styles.upgradeCard, { backgroundColor: '#27AE60', marginHorizontal: 0, marginTop: 5, marginBottom: 10 }]} 
@@ -272,11 +281,18 @@ export default function AccountScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={logout}><Text style={styles.logoutText}>Sair da Conta</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+            <Text style={styles.logoutText}>Sair da Conta</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+            <Text style={styles.deleteText}>Excluir Conta</Text>
+          </TouchableOpacity>
+
           <View style={{height: 30}} />
         </ScrollView>
 
-        {/* MODAL EDITAR PERFIL */}
+        {/* MODAIS SEM ALTERAÇÃO */}
         <Modal visible={editModal} animationType="fade" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -293,7 +309,6 @@ export default function AccountScreen({ navigation }) {
           </View>
         </Modal>
 
-        {/* MODAL SENHA */}
         <Modal visible={pwdModal} animationType="fade" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -311,7 +326,6 @@ export default function AccountScreen({ navigation }) {
           </View>
         </Modal>
 
-        {/* MODAL CONTRIBUIÇÕES */}
         <Modal visible={rescueModal} animationType="slide">
           <SafeAreaView style={{flex: 1, backgroundColor: '#FFF'}}>
             <View style={styles.modalListHeader}>
@@ -327,9 +341,7 @@ export default function AccountScreen({ navigation }) {
               contentContainerStyle={{padding: 20}}
               renderItem={({item}) => (
                 <View style={styles.rescueCard}>
-                  {/* FOTO ORIGINAL */}
                   <Image source={{ uri: `${API_BASE_URL}${item.image_url}` }} style={styles.cardImage} />
-                  
                   <View style={{marginLeft: 15, flex: 1}}>
                     <Text style={styles.cardName}>{String(item.name)}</Text>
                     <Text style={{color: '#666', fontSize: 12}}>{String(item.species)}</Text>
@@ -339,8 +351,6 @@ export default function AccountScreen({ navigation }) {
                        </Text>
                     </View>
                   </View>
-
-                  {/* FOTO DO RESGATE (O QUE VOCÊ TIROU NA HORA DO RESGATE) */}
                   {item.status === 1 && item.rescue_image_url ? (
                     <View style={styles.finalHappyBox}>
                        <Image source={{ uri: `${API_BASE_URL}${item.rescue_image_url}` }} style={styles.rescueThumbnail} />
@@ -390,16 +400,17 @@ const styles = StyleSheet.create({
   partnerDesc: { fontSize: 12, color: '#666' },
   costBadge: { backgroundColor: '#FFF9E6', paddingHorizontal: 8, borderRadius: 6, marginTop: 4, alignSelf: 'flex-start' },
   costText: { fontSize: 10, color: '#B8860B', fontWeight: 'bold' },
-  logoutButton: { margin: 20, padding: 15, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
+  logoutButton: { marginHorizontal: 20, marginTop: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
   logoutText: { color: '#FF3B30', fontWeight: 'bold' },
+  deleteButton: { marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', backgroundColor: '#FF3B30' },
+  deleteText: { color: '#FFF', fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '85%', backgroundColor: '#FFF', padding: 25, borderRadius: 30 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
   modalListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, paddingTop: Platform.OS === 'ios' ? 20 : 10 },
   modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  
   input: { 
-    backgroundColor: '#F0F0F0', // CINZA TRAVADO
+    backgroundColor: '#F0F0F0', 
     padding: 15, 
     borderRadius: 12, 
     marginBottom: 15, 
@@ -408,7 +419,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#DDD' 
   },
-  
   btnSave: { backgroundColor: '#4A90E2', padding: 15, borderRadius: 12, alignItems: 'center' },
   rescueCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
   cardImage: { width: 65, height: 65, borderRadius: 12, backgroundColor: '#F0F0F0' },
