@@ -1,5 +1,21 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, StyleSheet, Alert, Modal, Text, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView, Share, TouchableWithoutFeedback } from 'react-native';
+import { 
+  View, 
+  StyleSheet, 
+  Alert, 
+  Modal, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  Image, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  Share, 
+  TouchableWithoutFeedback,
+  Linking,
+  ActivityIndicator
+} from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,12 +39,17 @@ const getRelativeTime = (dateString) => {
 };
 
 export default function MapScreen() {
-  const { user, refreshUserData, animals, fetchAnimals, donateCoins, awardCoins } = useContext(AuthContext); 
+  const { user, refreshUserData, animals, fetchAnimals } = useContext(AuthContext); 
   
   const [location, setLocation] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false); 
   const [rescueModalVisible, setRescueModalVisible] = useState(false);
+  
+  // Modal de Doação Customizado
+  const [donateModalVisible, setDonateModalVisible] = useState(false);
+  const [donationAmount, setDonationAmount] = useState('10');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
@@ -50,13 +71,36 @@ export default function MapScreen() {
   const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
   const API_URL = `${API_BASE_URL}/animals`;
 
-  useEffect(() => { getLocation(); fetchAnimals(); }, []);
+  useEffect(() => { 
+    getLocation(); 
+    fetchAnimals(); 
+
+    // Captura o retorno do checkout (Mercado Pago) e exibe o agradecimento da doação
+    const handleOpenURL = (event) => {
+      if (event?.url && (event.url.includes('status=approved') || event.url.includes('donation=success'))) {
+        Alert.alert(
+          "Muito obrigado pela doação! ❤️",
+          "Sua contribuição foi confirmada com sucesso! Esse apoio ajuda diretamente no resgate e cuidados com os animais no PetGo. 🐾"
+        );
+        if (refreshUserData) {
+          refreshUserData().catch((err) => console.log('Erro ao atualizar usuário:', err));
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleOpenURL);
+    return () => subscription.remove();
+  }, []);
 
   async function getLocation() {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return;
-    let loc = await Location.getCurrentPositionAsync({});
-    setLocation(loc.coords);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      let loc = await Location.getCurrentPositionAsync({});
+      setLocation(loc.coords);
+    } catch (err) {
+      console.log('Erro de localização:', err);
+    }
   }
 
   async function pickRescueImage() {
@@ -74,12 +118,52 @@ export default function MapScreen() {
     if (!result.canceled) setRescueImage(result.assets[0].uri);
   }
 
-  const handleSupportChoice = () => {
-    Alert.alert("Como apoiar? ❤️", "Escolha a forma de ajudar:", [
-      { text: "Cancelar", style: "cancel" },
-      { text: "10 PetCoins", onPress: async () => { if (await donateCoins(10)) Alert.alert("Sucesso!", "Doação realizada."); } },
-      { text: "PIX", onPress: () => Alert.alert("PIX 📋", "Chave: petgo-pix-2026-tcc") }
-    ]);
+  const handleMercadoPagoDonation = async () => {
+    const numericAmount = parseFloat(donationAmount.replace(',', '.'));
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      Alert.alert("Valor Inválido", "Por favor, insira um valor válido para doação.");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/create-preference`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          title: `Apoio PetGo - ${selectedAnimal?.name ? 'Animal: ' + selectedAnimal.name : 'Causa Animal'}`,
+          price: numericAmount,
+          quantity: 1,
+          type: 'donation'
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && (data.init_point || data.sandbox_init_point)) {
+        const checkoutUrl = data.sandbox_init_point || data.init_point;
+        setDonateModalVisible(false);
+        await Linking.openURL(checkoutUrl);
+
+        // Alerta informativo acionado ao abrir a página de pagamento
+        setTimeout(() => {
+          Alert.alert(
+            "Obrigado por apoiar! 🙏",
+            "Assim que o pagamento for concluído no Mercado Pago, sua doação será confirmada."
+          );
+        }, 1000);
+      } else {
+        Alert.alert("Erro no Mercado Pago", data.message || "Não foi possível gerar o link de pagamento.");
+      }
+    } catch (error) {
+      Alert.alert("Erro", "Falha de conexão com a plataforma de pagamento.");
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const onShare = async (animal) => {
@@ -154,7 +238,7 @@ export default function MapScreen() {
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
-        body: formData, // FormData permite upload de arquivos
+        body: formData,
         headers: { 'ngrok-skip-browser-warning': 'true' },
       });
 
@@ -163,11 +247,13 @@ export default function MapScreen() {
         setRescueModalVisible(false); 
         setRescueImage(null); 
         setRescuerName('');
-        await refreshUserData(); 
+        if (refreshUserData) {
+          await refreshUserData().catch((e) => console.log('Erro de sincronização de dados:', e));
+        }
         fetchAnimals();
         
         const earnedText = data.earnedCoins 
-          ? `+${data.earnedCoins} PetCoins creditadas! (${data.multiplier || 1}x multiplicador do plano)` 
+          ? `+${data.earnedCoins} PetCoins creditadas!` 
           : '+50 PetCoins creditadas.';
           
         Alert.alert('Parabéns! ❤️', `Resgate validado com foto!\n\n${earnedText}`);
@@ -201,10 +287,10 @@ export default function MapScreen() {
             <View style={[
               styles.petMarker, 
               { backgroundColor: 
-                  animal.urgency === 'Crítico' ? '#E74C3C' : // Vermelho
-                  animal.urgency === 'Alerta' ? '#F1C40F' :  // Amarelo
-                  animal.urgency === 'Estável' ? '#2ECC71' : // Verde
-                  animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' // Backup se for nulo
+                  animal.urgency === 'Crítico' ? '#E74C3C' : 
+                  animal.urgency === 'Alerta' ? '#F1C40F' :  
+                  animal.urgency === 'Estável' ? '#2ECC71' : 
+                  animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' 
               }
             ]}>
               <Ionicons name="paw" size={16} color="#FFF" />
@@ -230,6 +316,7 @@ export default function MapScreen() {
         <Text style={styles.addButtonText}>{selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}</Text>
       </TouchableOpacity>
 
+      {/* Drawer de Detalhes do Animal */}
       <Modal visible={detailVisible} animationType="slide" transparent={true}>
         <TouchableWithoutFeedback onPress={() => setDetailVisible(false)}>
           <View style={styles.drawerOverlay}>
@@ -257,11 +344,11 @@ export default function MapScreen() {
                   </View>
 
                   <Text style={styles.drawerSectionTitle}>Sobre o registro:</Text>
-                  <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Resgate para ganhar moedas ou apoie a causa comunitária.</Text>
+                  <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Faça uma doação para apoiar o resgate e tratamento.</Text>
                   <View style={styles.drawerActions}>
                     <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color="#FFF" /></TouchableOpacity>
                     <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.donateButtonNew} onPress={handleSupportChoice}><Ionicons name="heart" size={18} color="#FFF" /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.donateButtonNew} onPress={() => { setDetailVisible(false); setTimeout(() => setDonateModalVisible(true), 400); }}><Ionicons name="heart" size={18} color="#FFF" /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
                   </View>
                 </ScrollView>
               </View>
@@ -270,6 +357,67 @@ export default function MapScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
+      {/* Modal Customizado de Doação Mercado Pago */}
+      <Modal visible={donateModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlayCenter}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.donateCard}>
+            <View style={styles.donateHeader}>
+              <View style={styles.heartCircle}>
+                <Ionicons name="heart" size={32} color="#FF6B6B" />
+              </View>
+              <Text style={styles.donateTitle}>Fazer uma Doação ❤️</Text>
+              <Text style={styles.donateSubtitle}>Sua contribuição ajuda nos cuidados e tratamento de {selectedAnimal?.name || 'animais resgatados'}.</Text>
+            </View>
+
+            <Text style={styles.presetLabel}>Escolha ou digite um valor:</Text>
+            
+            <View style={styles.presetContainer}>
+              {['5', '10', '25', '50'].map(val => (
+                <TouchableOpacity 
+                  key={val} 
+                  style={[styles.presetChip, donationAmount === val && styles.presetChipSelected]}
+                  onPress={() => setDonationAmount(val)}
+                >
+                  <Text style={[styles.presetText, donationAmount === val && styles.presetTextSelected]}>R$ {val}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.customAmountContainer}>
+              <Text style={styles.currencyPrefix}>R$</Text>
+              <TextInput 
+                style={styles.customAmountInput} 
+                keyboardType="numeric" 
+                value={donationAmount} 
+                onChangeText={setDonationAmount}
+                placeholder="0.00"
+                placeholderTextColor="#A0AEC0"
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.mpButton} 
+              onPress={handleMercadoPagoDonation}
+              disabled={isProcessingPayment}
+            >
+              {isProcessingPayment ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={20} color="#FFF" style={{marginRight: 8}} />
+                  <Text style={styles.mpButtonText}>Pagar com Mercado Pago</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setDonateModalVisible(false)} style={styles.closeDonateBtn}>
+              <Text style={styles.closeDonateText}>Cancelar</Text>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Modal Novo Registro */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
@@ -313,6 +461,7 @@ export default function MapScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
+      {/* Modal Resgate */}
       <Modal visible={rescueModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.rescueModal}>
@@ -382,4 +531,24 @@ const styles = StyleSheet.create({
   cancelButton: { padding: 15, flex: 1, alignItems: 'center' },
   saveButton: { backgroundColor: '#2ECC71', padding: 15, borderRadius: 12, flex: 2, alignItems: 'center' },
   confirmRescueBtn: { backgroundColor: '#2ECC71', padding: 16, borderRadius: 12, alignItems: 'center' },
+
+  /* Estilos do Modal de Doação Customizado */
+  donateCard: { backgroundColor: '#FFF', borderRadius: 28, padding: 24, elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
+  donateHeader: { alignItems: 'center', marginBottom: 20 },
+  heartCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  donateTitle: { fontSize: 20, fontWeight: 'bold', color: '#2D3748', textAlign: 'center' },
+  donateSubtitle: { fontSize: 13, color: '#718096', textAlign: 'center', marginTop: 6, lineHeight: 18 },
+  presetLabel: { fontSize: 13, fontWeight: '600', color: '#4A5568', marginBottom: 10 },
+  presetContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  presetChip: { flex: 1, backgroundColor: '#F7FAFC', borderWidth: 1.5, borderColor: '#E2E8F0', paddingVertical: 10, borderRadius: 12, marginHorizontal: 3, alignItems: 'center' },
+  presetChipSelected: { backgroundColor: '#EBF8FF', borderColor: '#3182CE' },
+  presetText: { fontSize: 14, fontWeight: 'bold', color: '#4A5568' },
+  presetTextSelected: { color: '#3182CE' },
+  customAmountContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7FAFC', borderWidth: 1.5, borderColor: '#CBD5E0', borderRadius: 14, paddingHorizontal: 16, marginBottom: 20, height: 54 },
+  currencyPrefix: { fontSize: 18, fontWeight: 'bold', color: '#4A5568', marginRight: 8 },
+  customAmountInput: { flex: 1, fontSize: 18, fontWeight: 'bold', color: '#2D3748' },
+  mpButton: { backgroundColor: '#009EE3', flexDirection: 'row', paddingVertical: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  mpButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  closeDonateBtn: { marginTop: 14, paddingVertical: 10, alignItems: 'center' },
+  closeDonateText: { color: '#A0AEC0', fontWeight: '600', fontSize: 14 }
 });

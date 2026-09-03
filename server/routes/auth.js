@@ -235,7 +235,7 @@ router.get('/payment-success', (req, res) => {
       <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; text-align:center;">
         <div>
           <h1 style="color: #27ae60;">Pagamento Aprovado! 🎉</h1>
-          <p>Sua assinatura foi ativada com sucesso.</p>
+          <p>Seu pagamento foi realizado com sucesso, agredemos seu apoio.</p>
           <p>Você já pode fechar esta janela e voltar para o aplicativo <b>PetGo</b>.</p>
         </div>
       </body>
