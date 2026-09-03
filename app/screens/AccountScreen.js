@@ -10,7 +10,8 @@ import {
   FlatList, 
   Image, 
   ScrollView, 
-  Platform 
+  Platform,
+  Linking
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -38,6 +39,9 @@ export default function AccountScreen({ navigation }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeVoucher, setActiveVoucher] = useState(null);
 
+  // --- ESTADO DE PROCESSAMENTO DE PAGAMENTO MERCADO PAGO ---
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
   // --- ESTADOS DE ENTREGA / RETIRADA ---
   const [deliveryType, setDeliveryType] = useState('ONG'); // 'ONG' ou 'DELIVERY'
   const [selectedOng, setSelectedOng] = useState(ONGS_LIST[0]);
@@ -60,6 +64,22 @@ export default function AccountScreen({ navigation }) {
       setNewEmail(user.email || '');
     }
   }, [user, editModal]);
+
+  // Listener para capturar o retorno do checkout do Mercado Pago
+  useEffect(() => {
+    const handleOpenURL = (event) => {
+      if (event?.url && event.url.includes('status=approved')) {
+        Alert.alert(
+          "Compra Confirmada! 🎉",
+          "Seu pagamento via Mercado Pago foi aprovado com sucesso! Obrigado por apoiar a Loja PetGo."
+        );
+        refreshUserData();
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleOpenURL);
+    return () => subscription.remove();
+  }, []);
 
   // Função utilitária para gerar código hash aleatório 
   const generateUniqueCode = () => {
@@ -132,8 +152,55 @@ export default function AccountScreen({ navigation }) {
     setProductModal(true);
   };
 
-  // Finalizar Compra de Produto Físico (PIX ou Coins)
+  // Finalizar Compra de Produto Físico (PIX, Coins ou Mercado Pago)
   const processPhysicalPurchase = async (paymentMethod) => {
+    if (paymentMethod === 'MERCADO_PAGO') {
+      if (!selectedItem || !selectedItem.price) {
+        Alert.alert("Erro", "Produto inválido.");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+
+      try {
+        const numericPrice = parseFloat(
+          selectedItem.price.replace(/[^\d,]/g, '').replace(',', '.')
+        );
+
+        const response = await fetch(`${API_BASE_URL}/auth/create-preference`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
+          body: JSON.stringify({
+            userId: user?.id,
+            title: `Loja PetGo - ${selectedItem.name}`,
+            price: numericPrice,
+            quantity: 1,
+            type: 'store_purchase',
+            deliveryType: deliveryType,
+            deliveryInfo: deliveryType === 'ONG' ? selectedOng : deliveryAddress
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && (data.init_point || data.sandbox_init_point)) {
+          setProductModal(false);
+          const checkoutUrl = data.sandbox_init_point || data.init_point;
+          await Linking.openURL(checkoutUrl);
+        } else {
+          Alert.alert("Erro no Mercado Pago", data.message || "Não foi possível gerar a cobrança.");
+        }
+      } catch (error) {
+        Alert.alert("Erro", "Falha de conexão ao processar o pagamento via Mercado Pago.");
+      } finally {
+        setIsProcessingPayment(false);
+      }
+      return;
+    }
+
     if (paymentMethod === 'PIX') {
       setProductModal(false);
       Alert.alert(
@@ -377,7 +444,7 @@ export default function AccountScreen({ navigation }) {
               <TextInput style={styles.input} placeholder="Nome" value={newName} onChangeText={setNewName} underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TextInput style={styles.input} placeholder="E-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TouchableOpacity style={styles.btnSave} onPress={handleUpdate}>
-                <Text style={{color:'#FFF', fontWeight: 'bold'}}>Salvar</Text>
+                <Text style={styles.btnSaveText}>Salvar</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditModal(false)} style={{marginTop: 15}}>
                 <Text style={{textAlign: 'center', color: '#666'}}>Voltar</Text>
@@ -395,7 +462,7 @@ export default function AccountScreen({ navigation }) {
               <TextInput style={styles.input} placeholder="Nova Senha" secureTextEntry value={newPass} onChangeText={setNewPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TextInput style={styles.input} placeholder="Confirmar Nova Senha" secureTextEntry value={confirmPwd} onChangeText={setConfirmPwd} underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TouchableOpacity style={styles.btnSave} onPress={handlePasswordChange}>
-                <Text style={{color:'#FFF', fontWeight: 'bold'}}>Atualizar Senha</Text>
+                <Text style={styles.btnSaveText}>Atualizar Senha</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setPwdModal(false)} style={{marginTop: 15}}>
                 <Text style={{textAlign: 'center', color: '#666'}}>Cancelar</Text>
@@ -442,7 +509,7 @@ export default function AccountScreen({ navigation }) {
           </SafeAreaView>
         </Modal>
 
-        {/* NOVO MODAL 4: QR CODE DINÂMICO PARA CUPOM DO MARKETPLACE */}
+        {/* MODAL 4: QR CODE DINÂMICO PARA CUPOM DO MARKETPLACE */}
         <Modal visible={couponModal} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -466,13 +533,13 @@ export default function AccountScreen({ navigation }) {
               </View>
 
               <TouchableOpacity style={styles.btnSave} onPress={() => setCouponModal(false)}>
-                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Concluído</Text>
+                <Text style={styles.btnSaveText}>Concluído</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        {/* NOVO MODAL 5: OPÇÕES DE ENTREGA / RETIRADA (PRODUTOS FÍSICOS) */}
+        {/* MODAL 5: OPÇÕES DE ENTREGA / RETIRADA (PRODUTOS FÍSICOS) */}
         <Modal visible={productModal} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -529,14 +596,24 @@ export default function AccountScreen({ navigation }) {
                 style={[styles.btnSave, { backgroundColor: '#F39C12', marginBottom: 8 }]} 
                 onPress={() => processPhysicalPurchase('COINS')}
               >
-                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Pagar com {selectedItem?.coins} Coins</Text>
+                <Text style={styles.btnSaveText}>Pagar com {selectedItem?.coins} Coins</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.btnSave, { backgroundColor: '#009EE3', marginBottom: 8 }]} 
+                onPress={() => processPhysicalPurchase('MERCADO_PAGO')}
+                disabled={isProcessingPayment}
+              >
+                <Text style={styles.btnSaveText}>
+                  {isProcessingPayment ? "Processando..." : `Pagar com Mercado Pago (${selectedItem?.price})`}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
                 style={[styles.btnSave, { backgroundColor: '#27AE60' }]} 
                 onPress={() => processPhysicalPurchase('PIX')}
               >
-                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Pagar em PIX ({selectedItem?.price})</Text>
+                <Text style={styles.btnSaveText}>Pagar em PIX ({selectedItem?.price})</Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => setProductModal(false)} style={{ marginTop: 12 }}>
@@ -603,7 +680,22 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#DDD' 
   },
-  btnSave: { width: '100%', backgroundColor: '#4A90E2', padding: 15, borderRadius: 12, alignItems: 'center' },
+  btnSave: { 
+    width: '100%', 
+    backgroundColor: '#4A90E2', 
+    paddingVertical: 14,
+    paddingHorizontal: 12, 
+    borderRadius: 12, 
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  btnSaveText: { 
+    color: '#FFF', 
+    fontWeight: 'bold', 
+    textAlign: 'center', 
+    fontSize: 13.5,
+    lineHeight: 18
+  },
   rescueCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
   cardImage: { width: 65, height: 65, borderRadius: 12, backgroundColor: '#F0F0F0' },
   cardName: { fontWeight: 'bold', fontSize: 16, color: '#333' },
