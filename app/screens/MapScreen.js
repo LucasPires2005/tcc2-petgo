@@ -23,7 +23,7 @@ const getRelativeTime = (dateString) => {
 };
 
 export default function MapScreen() {
-  const { user, refreshUserData, animals, fetchAnimals, donateCoins } = useContext(AuthContext); 
+  const { user, refreshUserData, animals, fetchAnimals, donateCoins, awardCoins } = useContext(AuthContext); 
   
   const [location, setLocation] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -159,12 +159,18 @@ export default function MapScreen() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setRescueModalVisible(false); 
         setRescueImage(null); 
         setRescuerName('');
         await refreshUserData(); 
         fetchAnimals();
-        Alert.alert('Parabéns! ❤️', 'Resgate validado com foto! +50 PetCoins creditadas.');
+        
+        const earnedText = data.earnedCoins 
+          ? `+${data.earnedCoins} PetCoins creditadas! (${data.multiplier || 1}x multiplicador do plano)` 
+          : '+50 PetCoins creditadas.';
+          
+        Alert.alert('Parabéns! ❤️', `Resgate validado com foto!\n\n${earnedText}`);
       }
     } catch (e) { Alert.alert('Erro', 'Falha ao processar resgate'); }
   }

@@ -48,7 +48,7 @@ router.post('/', upload.single('image'), (req, res) => {
   });
 });
 
-// ROTA DE RESGATE CORRIGIDA (VINCULA O USERID AO ANIMAL RESGATADO)
+// ROTA DE RESGATE CORRIGIDA (APLICA MULTIPLICADOR DE MOEDAS DO PLAN_TIER DO USUÁRIO)
 router.patch('/:id/rescue', upload.single('rescue_image'), (req, res) => {
   const { id } = req.params;
   const { rescuer_name, rescuer_contact, userId } = req.body;
@@ -65,9 +65,32 @@ router.patch('/:id/rescue', upload.single('rescue_image'), (req, res) => {
       }
       
       if (parsedUserId) {
-        db.run(`UPDATE users SET coins = coins + 50 WHERE id = ?`, [parsedUserId]);
+        // Busca o plan_tier do usuário para calcular o multiplicador (1x, 2x ou 3x)
+        db.get(`SELECT plan_tier FROM users WHERE id = ?`, [parsedUserId], (errUser, userRow) => {
+          let multiplier = 1;
+          if (!errUser && userRow && userRow.plan_tier) {
+            const tier = parseInt(userRow.plan_tier, 10);
+            if (tier === 2) multiplier = 2;
+            if (tier === 3) multiplier = 3;
+          }
+          const baseCoins = 50;
+          const earnedCoins = baseCoins * multiplier;
+
+          db.run(`UPDATE users SET coins = COALESCE(coins, 0) + ? WHERE id = ?`, [earnedCoins, parsedUserId], (errCoins) => {
+            if (errCoins) {
+              console.error("Erro ao creditar moedas do resgate:", errCoins.message);
+            }
+            return res.json({ 
+              message: "Resgate confirmado com sucesso!", 
+              rescueImageUrl, 
+              earnedCoins, 
+              multiplier 
+            });
+          });
+        });
+      } else {
+        res.json({ message: "Resgate confirmado com sucesso!", rescueImageUrl, earnedCoins: 0, multiplier: 1 });
       }
-      res.json({ message: "Resgate confirmado com sucesso!", rescueImageUrl });
     }
   );
 });
