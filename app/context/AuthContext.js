@@ -25,6 +25,27 @@ export function AuthProvider({ children }) {
     } catch (e) { console.log("Erro nas moedas"); }
   }
 
+  // ADIÇÃO: Credita PetCoins aplicando o multiplicador do plano do usuário
+  async function awardCoins(baseAmount = 10) {
+    if (!user) return false;
+    try {
+      const response = await fetch(`${BASE_URL}/auth/add-coins`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, baseAmount }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setUser({ ...user, coins: data.newBalance });
+        Alert.alert("PetCoins Recebidas! 🪙", data.message);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function buyPremium() {
     try {
       const response = await fetch(`${BASE_URL}/auth/upgrade-pro`, {
@@ -193,7 +214,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
-      buyPremium, donateCoins, subscribeToPlan, deleteAccount,
+      buyPremium, donateCoins, subscribeToPlan, deleteAccount, awardCoins,
       logout: () => setUser(null)
     }}>
       {children}

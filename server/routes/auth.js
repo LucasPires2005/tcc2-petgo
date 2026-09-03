@@ -6,9 +6,40 @@ const db = require('../db');
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 const client = new MercadoPagoConfig({ accessToken: 'APP_USR-3777985475151365-072309-94db5b3b3dee1edd08fdf8fb7b78f58a-3563512986' });
 
+// HELPER: Calcula o multiplicador de PetCoins com base no plano do usuário
+function getMultiplier(planTier) {
+  if (planTier === 3) return 3; // Plano Guardião
+  if (planTier === 2) return 2; // Plano Protetor
+  return 1;                     // Plano Amigo / Gratuito
+}
+
 // ==========================================
 // ROTAS DO APLICATIVO
 // ==========================================
+
+// ROTA PARA ADICIONAR PETCOINS COM MULTIPLICADOR DO PLANO
+router.post('/add-coins', (req, res) => {
+  const { userId, baseAmount } = req.body;
+  
+  db.get('SELECT coins, plan_tier FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err || !user) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    const multiplier = getMultiplier(user.plan_tier);
+    const earnedCoins = (baseAmount || 10) * multiplier;
+    const newBalance = (user.coins || 0) + earnedCoins;
+
+    db.run('UPDATE users SET coins = ? WHERE id = ?', [newBalance, userId], (err) => {
+      if (err) return res.status(500).json({ error: "Erro ao creditar PetCoins" });
+      res.json({ 
+        success: true, 
+        earnedCoins, 
+        multiplier, 
+        newBalance,
+        message: `Você ganhou ${earnedCoins} PetCoins! (Multiplicador ${multiplier}x ativado)`
+      });
+    });
+  });
+});
 
 router.post('/buy-product', (req, res) => {
   const { userId, cost, productName } = req.body;
@@ -38,7 +69,6 @@ router.post('/upgrade-pro', (req, res) => {
   });
 });
 
-// Essa é a rota que seu botão "Já Paguei" vai chamar para salvar a apresentação!
 router.post('/subscribe-plan', (req, res) => {
   const { userId, planTier } = req.body; 
   db.get('SELECT id FROM users WHERE id = ?', [userId], (err, user) => {
@@ -144,7 +174,6 @@ router.post('/create-preference', async (req, res) => {
       }
     });
 
-    // PULO DO GATO: Prioriza o sandbox_init_point para ambiente de testes
     const checkoutUrl = response.sandbox_init_point || response.init_point;
     res.json({ id: response.id, init_point: checkoutUrl });
 
@@ -154,7 +183,6 @@ router.post('/create-preference', async (req, res) => {
   }
 });
 
-// WEBHOOK QUE RECEBE A NOTIFICAÇÃO DO PAGAMENTO
 router.post('/webhook', async (req, res) => {
   const paymentId = req.query['data.id'] || (req.body.data && req.body.data.id);
   const type = req.query.type || req.body.type;
