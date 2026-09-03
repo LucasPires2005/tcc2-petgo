@@ -1,20 +1,49 @@
 import React, { useContext, useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, FlatList, Image, ScrollView, Platform, SafeAreaView } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Modal, 
+  TextInput, 
+  Alert, 
+  FlatList, 
+  Image, 
+  ScrollView, 
+  Platform 
+} from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
+const ONGS_LIST = [
+  'ONG Anjos de Quatro Patas - Unidade Centro',
+  'ONG Proteção Animal - Unidade Sul',
+  'ONG S.O.S Pet - Unidade Senac Nações Unidas'
+];
+
 export default function AccountScreen({ navigation }) {
   const { user, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium, deleteAccount } = useContext(AuthContext);
   
-  // --- ESTADOS DOS MODAIS ---
+  // --- ESTADOS DOS MODAIS ORIGINAIS ---
   const [editModal, setEditModal] = useState(false);
   const [pwdModal, setPwdModal] = useState(false);
   const [rescueModal, setRescueModal] = useState(false);
   const [myRescues, setMyRescues] = useState([]);
 
-  // --- ESTADOS DE INPUT ---
+  // --- NOVOS ESTADOS PARA LOJINHA E MARKETPLACE ---
+  const [couponModal, setCouponModal] = useState(false);
+  const [productModal, setProductModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [activeVoucher, setActiveVoucher] = useState(null);
+
+  // --- ESTADOS DE ENTREGA / RETIRADA ---
+  const [deliveryType, setDeliveryType] = useState('ONG'); // 'ONG' ou 'DELIVERY'
+  const [selectedOng, setSelectedOng] = useState(ONGS_LIST[0]);
+  const [deliveryAddress, setDeliveryAddress] = useState('Av. das Nações Unidas, 14500 - São Paulo/SP');
+
+  // --- ESTADOS DE INPUTS ORIGINAIS ---
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [currPass, setCurrPass] = useState('');
@@ -32,24 +61,30 @@ export default function AccountScreen({ navigation }) {
     }
   }, [user, editModal]);
 
+  // Função utilitária para gerar código hash aleatório 
+  const generateUniqueCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = 'PETGO-';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
   const handleUpdate = async () => {
     const success = await updateAccount(newName, newEmail);
-    if (success) {
-      setEditModal(false);
-    }
+    if (success) setEditModal(false);
   };
 
   const handlePasswordChange = async () => {
     if (!currPass || !newPass || !confirmPwd) {
       return Alert.alert("Atenção", "Preencha todos os campos de senha.");
     }
-    
     if (newPass !== confirmPwd) {
       return Alert.alert("Erro", "A confirmação da nova senha não coincide.");
     }
 
     const success = await changePassword(currPass, newPass);
-    
     if (success) {
       Alert.alert("Sucesso 🎉", "Sua senha foi alterada com sucesso!");
       setPwdModal(false);
@@ -91,44 +126,80 @@ export default function AccountScreen({ navigation }) {
     { id: '3', name: 'Banho & Tosa PRO', desc: '1 Tosa completa', cost: 250, icon: 'water' },
   ];
 
+  // Abertura da Loja Física (Selecionar Entrega / Retirada)
   const handleBuyProduct = (item) => {
+    setSelectedItem(item);
+    setProductModal(true);
+  };
+
+  // Finalizar Compra de Produto Físico (PIX ou Coins)
+  const processPhysicalPurchase = async (paymentMethod) => {
+    if (paymentMethod === 'PIX') {
+      setProductModal(false);
+      Alert.alert(
+        "PIX Copia e Cola 📋", 
+        `Chave: petgo-pix-loja-oficial-2026\nItem: ${selectedItem.name}\n\nEntrega/Retirada registrada:\n${deliveryType === 'ONG' ? selectedOng : deliveryAddress}`
+      );
+      return;
+    }
+
+    if (user?.coins < selectedItem.coins) {
+      return Alert.alert("Saldo Insuficiente", "Resgate mais animais para ganhar moedas!");
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/buy-product`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, cost: selectedItem.coins, productName: selectedItem.name })
+      });
+
+      if (res.ok) {
+        const uniqueCode = generateUniqueCode();
+        setProductModal(false);
+        refreshUserData();
+
+        Alert.alert(
+          "Pedido Confirmado! 🎉",
+          deliveryType === 'ONG'
+            ? `Seu produto estará disponível para retirada em:\n${selectedOng}\n\nApresente o código: ${uniqueCode}`
+            : `Seu pedido será entregue em:\n${deliveryAddress}\n\nCódigo de Rastreio: PG${Math.floor(100000000 + Math.random() * 900000000)}BR`
+        );
+      }
+    } catch (e) { 
+      Alert.alert("Erro", "Conexão falhou ao processar pedido."); 
+    }
+  };
+
+  // Resgate do Marketplace (Gera QR Code Único)
+  const handleRedeem = async (partner) => {
+    if (user?.coins < partner.cost) {
+      return Alert.alert("Saldo Insuficiente", `Você precisa de ${partner.cost} PetCoins.`);
+    }
+
     Alert.alert(
-      "Finalizar Compra 🛍️",
-      `Item: ${item.name}\nEscolha como deseja pagar:`,
+      "Confirmar Resgate 🎁",
+      `Deseja usar ${partner.cost} PetCoins para resgatar "${partner.desc}" em ${partner.name}?`,
       [
         { text: "Cancelar", style: "cancel" },
-        { 
-          text: `Pagar ${item.price} (PIX)`, 
-          onPress: () => {
-            Alert.alert("PIX Copia e Cola 📋", "Chave: petgo-pix-loja-oficial-2026\n\nEnvie o comprovante para suporte@petgo.com");
-          } 
-        },
-        { 
-          text: `Usar ${item.coins} Coins`, 
+        {
+          text: "Confirmar",
           onPress: async () => {
-            if (user?.coins < item.coins) return Alert.alert("Saldo Insuficiente", "Resgate mais animais para ganhar moedas!");
-            try {
-              const res = await fetch(`${API_BASE_URL}/auth/buy-product`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, cost: item.coins, productName: item.name })
-              });
-              const data = await res.json();
-              if (res.ok) {
-                Alert.alert("Sucesso! 🎉", data.message);
-                refreshUserData();
-              }
-            } catch (e) { Alert.alert("Erro", "Conexão falhou."); }
-          } 
+            const serverCode = await redeemReward(partner.cost);
+            const displayCode = serverCode || generateUniqueCode();
+
+            setActiveVoucher({
+              partner: partner.name,
+              offer: partner.desc,
+              code: displayCode,
+              time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            });
+
+            setCouponModal(true);
+          }
         }
       ]
     );
-  };
-
-  const handleRedeem = async (partner) => {
-    if (user?.coins < partner.cost) return Alert.alert("Saldo Insuficiente", `Você precisa de ${partner.cost} PetCoins.`);
-    const code = await redeemReward(partner.cost);
-    if (code) Alert.alert("Sucesso! 🎉", `Código: ${code}`);
   };
 
   const loadMyRescues = async () => {
@@ -145,6 +216,7 @@ export default function AccountScreen({ navigation }) {
       <SafeAreaView style={styles.container}>
         <ScrollView showsVerticalScrollIndicator={false}>
           
+          {/* HEADER PERFIL */}
           <View style={styles.profileHeader}>
             <View style={[styles.avatar, user?.is_premium === 1 || user?.plan_tier > 0 ? styles.avatarPremium : null]}>
               <Ionicons name="person" size={55} color="#FFF" />
@@ -193,6 +265,7 @@ export default function AccountScreen({ navigation }) {
             </View>
           </View>
 
+          {/* CARDS DE PLANO E ASSINATURA */}
           <TouchableOpacity 
             style={[styles.upgradeCard, { backgroundColor: '#8E44AD', marginTop: 15, marginBottom: 5 }]} 
             onPress={() => navigation.navigate('Subscription')}
@@ -215,6 +288,7 @@ export default function AccountScreen({ navigation }) {
             </TouchableOpacity>
           ) : null}
 
+          {/* MENU CONTA */}
           <View style={styles.menu}>
             <TouchableOpacity style={styles.menuItem} onPress={loadMyRescues}>
               <View style={[styles.iconArea, {backgroundColor: '#E1F0FF'}]}><Ionicons name="heart" size={22} color="#4A90E2" /></View>
@@ -235,6 +309,7 @@ export default function AccountScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          {/* LOJA OFICIAL */}
           <View style={styles.partnersSection}>
             <Text style={styles.sectionTitle}>Loja Oficial PetGo 🛍️</Text>
             {storeItems.map(item => (
@@ -249,6 +324,7 @@ export default function AccountScreen({ navigation }) {
             ))}
           </View>
 
+          {/* MARKETPLACE */}
           <View style={styles.partnersSection}>
             <Text style={styles.sectionTitle}>Marketplace 🎁</Text>
             {partners.map(p => (
@@ -264,6 +340,7 @@ export default function AccountScreen({ navigation }) {
             ))}
           </View>
 
+          {/* PARCERIA ONG */}
           <View style={styles.partnersSection}>
             <TouchableOpacity 
               style={[styles.upgradeCard, { backgroundColor: '#27AE60', marginHorizontal: 0, marginTop: 5, marginBottom: 10 }]} 
@@ -292,7 +369,7 @@ export default function AccountScreen({ navigation }) {
           <View style={{height: 30}} />
         </ScrollView>
 
-        {/* MODAIS SEM ALTERAÇÃO */}
+        {/* MODAL 1: EDITAR PERFIL */}
         <Modal visible={editModal} animationType="fade" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -309,6 +386,7 @@ export default function AccountScreen({ navigation }) {
           </View>
         </Modal>
 
+        {/* MODAL 2: MUDAR SENHA */}
         <Modal visible={pwdModal} animationType="fade" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
@@ -326,6 +404,7 @@ export default function AccountScreen({ navigation }) {
           </View>
         </Modal>
 
+        {/* MODAL 3: HISTÓRICO DE RESGATES */}
         <Modal visible={rescueModal} animationType="slide">
           <SafeAreaView style={{flex: 1, backgroundColor: '#FFF'}}>
             <View style={styles.modalListHeader}>
@@ -361,6 +440,110 @@ export default function AccountScreen({ navigation }) {
               )}
             />
           </SafeAreaView>
+        </Modal>
+
+        {/* NOVO MODAL 4: QR CODE DINÂMICO PARA CUPOM DO MARKETPLACE */}
+        <Modal visible={couponModal} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Voucher Gerado! 🎉</Text>
+              <Text style={styles.voucherOffer}>{activeVoucher?.offer}</Text>
+              <Text style={styles.voucherPartner}>{activeVoucher?.partner}</Text>
+
+              <View style={styles.qrContainer}>
+                <Image
+                  source={{
+                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${activeVoucher?.code}`
+                  }}
+                  style={{ width: 160, height: 160 }}
+                />
+              </View>
+
+              <View style={styles.codeBox}>
+                <Text style={styles.codeLabel}>CÓDIGO ÚNICO:</Text>
+                <Text style={styles.codeText}>{activeVoucher?.code}</Text>
+                <Text style={styles.timeText}>Emitido às {activeVoucher?.time}</Text>
+              </View>
+
+              <TouchableOpacity style={styles.btnSave} onPress={() => setCouponModal(false)}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Concluído</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* NOVO MODAL 5: OPÇÕES DE ENTREGA / RETIRADA (PRODUTOS FÍSICOS) */}
+        <Modal visible={productModal} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Resgate de Produto 📦</Text>
+              <Text style={styles.voucherOffer}>{selectedItem?.name}</Text>
+
+              <View style={styles.tabRow}>
+                <TouchableOpacity
+                  style={[styles.tabButton, deliveryType === 'ONG' && styles.tabButtonActive]}
+                  onPress={() => setDeliveryType('ONG')}
+                >
+                  <Text style={[styles.tabText, deliveryType === 'ONG' && styles.tabTextActive]}>Retirar em ONG</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.tabButton, deliveryType === 'DELIVERY' && styles.tabButtonActive]}
+                  onPress={() => setDeliveryType('DELIVERY')}
+                >
+                  <Text style={[styles.tabText, deliveryType === 'DELIVERY' && styles.tabTextActive]}>Receber em Casa</Text>
+                </TouchableOpacity>
+              </View>
+
+              {deliveryType === 'ONG' ? (
+                <View style={{ width: '100%', marginBottom: 15 }}>
+                  <Text style={styles.fieldLabel}>Escolha o ponto de coleta:</Text>
+                  {ONGS_LIST.map((ong) => (
+                    <TouchableOpacity
+                      key={ong}
+                      style={[styles.ongOption, selectedOng === ong && styles.ongOptionActive]}
+                      onPress={() => setSelectedOng(ong)}
+                    >
+                      <Ionicons
+                        name={selectedOng === ong ? "radio-button-on" : "radio-button-off"}
+                        size={16}
+                        color={selectedOng === ong ? "#4A90E2" : "#999"}
+                      />
+                      <Text style={{ marginLeft: 8, fontSize: 12, color: '#333', flex: 1 }}>{ong}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <View style={{ width: '100%', marginBottom: 15 }}>
+                  <Text style={styles.fieldLabel}>Endereço de Entrega:</Text>
+                  <TextInput
+                    style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+                    value={deliveryAddress}
+                    onChangeText={setDeliveryAddress}
+                    multiline
+                  />
+                </View>
+              )}
+
+              <TouchableOpacity 
+                style={[styles.btnSave, { backgroundColor: '#F39C12', marginBottom: 8 }]} 
+                onPress={() => processPhysicalPurchase('COINS')}
+              >
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Pagar com {selectedItem?.coins} Coins</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.btnSave, { backgroundColor: '#27AE60' }]} 
+                onPress={() => processPhysicalPurchase('PIX')}
+              >
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Pagar em PIX ({selectedItem?.price})</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setProductModal(false)} style={{ marginTop: 12 }}>
+                <Text style={{ textAlign: 'center', color: '#666' }}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
 
       </SafeAreaView>
@@ -405,26 +588,42 @@ const styles = StyleSheet.create({
   deleteButton: { marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', backgroundColor: '#FF3B30' },
   deleteText: { color: '#FFF', fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', backgroundColor: '#FFF', padding: 25, borderRadius: 30 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  modalContent: { width: '85%', backgroundColor: '#FFF', padding: 25, borderRadius: 30, alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 10, color: '#333' },
   modalListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, paddingTop: Platform.OS === 'ios' ? 20 : 10 },
   modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   input: { 
+    width: '100%',
     backgroundColor: '#F0F0F0', 
     padding: 15, 
     borderRadius: 12, 
     marginBottom: 15, 
     color: '#333', 
-    fontSize: 16, 
+    fontSize: 15, 
     borderWidth: 1, 
     borderColor: '#DDD' 
   },
-  btnSave: { backgroundColor: '#4A90E2', padding: 15, borderRadius: 12, alignItems: 'center' },
+  btnSave: { width: '100%', backgroundColor: '#4A90E2', padding: 15, borderRadius: 12, alignItems: 'center' },
   rescueCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
   cardImage: { width: 65, height: 65, borderRadius: 12, backgroundColor: '#F0F0F0' },
   cardName: { fontWeight: 'bold', fontSize: 16, color: '#333' },
   statusTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 5 },
   statusTagText: { fontSize: 10, fontWeight: 'bold' },
   finalHappyBox: { alignItems: 'center', marginLeft: 10 },
-  rescueThumbnail: { width: 50, height: 50, borderRadius: 8, borderWidth: 1, borderColor: '#4A90E2' }
+  rescueThumbnail: { width: 50, height: 50, borderRadius: 8, borderWidth: 1, borderColor: '#4A90E2' },
+  voucherOffer: { fontSize: 16, fontWeight: 'bold', color: '#2ECC71', textAlign: 'center' },
+  voucherPartner: { fontSize: 13, color: '#666', marginBottom: 15, textAlign: 'center' },
+  qrContainer: { padding: 10, backgroundColor: '#FFF', borderRadius: 15, borderWidth: 1, borderColor: '#EEE', marginBottom: 15 },
+  codeBox: { backgroundColor: '#F8F9FA', padding: 12, borderRadius: 10, width: '100%', alignItems: 'center', marginBottom: 15 },
+  codeLabel: { fontSize: 10, color: '#888', fontWeight: 'bold' },
+  codeText: { fontSize: 18, fontWeight: 'bold', color: '#2ECC71', marginTop: 2 },
+  timeText: { fontSize: 10, color: '#AAA', marginTop: 2 },
+  tabRow: { flexDirection: 'row', width: '100%', marginVertical: 15 },
+  tabButton: { flex: 1, paddingVertical: 10, borderWidth: 1, borderColor: '#4A90E2', borderRadius: 10, alignItems: 'center', marginHorizontal: 4 },
+  tabButtonActive: { backgroundColor: '#4A90E2' },
+  tabText: { color: '#4A90E2', fontWeight: 'bold', fontSize: 12 },
+  tabTextActive: { color: '#FFF' },
+  fieldLabel: { fontSize: 12, fontWeight: 'bold', color: '#555', marginBottom: 8 },
+  ongOption: { flexDirection: 'row', alignItems: 'center', padding: 8, borderWidth: 1, borderColor: '#EEE', borderRadius: 8, marginBottom: 6 },
+  ongOptionActive: { borderColor: '#4A90E2', backgroundColor: '#F0F7FF' }
 });
