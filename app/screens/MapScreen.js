@@ -22,7 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
-// NOVO: Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
+// Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
 const getRelativeTime = (dateString) => {
   if (!dateString) return 'Data desconhecida';
   const now = new Date();
@@ -40,12 +40,12 @@ const getRelativeTime = (dateString) => {
 
 export default function MapScreen() {
   const { user, refreshUserData, animals, fetchAnimals } = useContext(AuthContext); 
-  
+   
   const [location, setLocation] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false); 
   const [rescueModalVisible, setRescueModalVisible] = useState(false);
-  
+   
   // Modal de Doação Customizado
   const [donateModalVisible, setDonateModalVisible] = useState(false);
   const [donationAmount, setDonationAmount] = useState('10');
@@ -54,14 +54,14 @@ export default function MapScreen() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [filter, setFilter] = useState('Todos'); 
-  
+   
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
   const [breed, setBreed] = useState('');
   const [health, setHealth] = useState('');
   const [image, setImage] = useState(null);
-  
-  // NOVO: Estado para gerenciar o Semáforo de Urgência
+   
+  // Estado para gerenciar o Semáforo de Urgência
   const [urgency, setUrgency] = useState('Estável');
 
   const [rescuerName, setRescuerName] = useState('');
@@ -196,7 +196,7 @@ export default function MapScreen() {
     formData.append('latitude', selectedLocation.latitude.toString());
     formData.append('longitude', selectedLocation.longitude.toString());
     formData.append('userId', user?.id?.toString());
-    
+     
     // ADIÇÃO: Enviando a urgência para o banco
     formData.append('urgency', urgency);
 
@@ -218,7 +218,7 @@ export default function MapScreen() {
 
   async function handleRescue() {
     if (!rescuerName || !rescuerContact || !rescueImage) return Alert.alert('Atenção', 'Preencha os dados e a FOTO DE PROVA!');
-    
+     
     const formData = new FormData();
     formData.append('rescuer_name', rescuerName);
     formData.append('rescuer_contact', rescuerContact);
@@ -228,7 +228,7 @@ export default function MapScreen() {
     const filename = rescueImage.split('/').pop();
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image`;
-    
+     
     formData.append('rescue_image', { 
       uri: rescueImage, 
       name: filename, 
@@ -251,7 +251,7 @@ export default function MapScreen() {
           await refreshUserData().catch((e) => console.log('Erro de sincronização de dados:', e));
         }
         fetchAnimals();
-        
+         
         const earnedText = data.earnedCoins 
           ? `+${data.earnedCoins} PetCoins creditadas!` 
           : '+50 PetCoins creditadas.';
@@ -328,12 +328,25 @@ export default function MapScreen() {
                     <Text style={styles.drawerTitle}>{selectedAnimal?.name}</Text>
                     <TouchableOpacity onPress={() => setDetailVisible(false)}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
                   </View>
-                  <Image source={selectedAnimal?.image_url ? { uri: `${API_BASE_URL}${selectedAnimal.image_url}` } : null} style={styles.drawerImage} />
                   
+                  {/* CORREÇÃO APLICADA AQUI: Tratamento de URL Supabase vs Local */}
+                  <Image 
+                    source={
+                      selectedAnimal?.image_url 
+                        ? { 
+                            uri: selectedAnimal.image_url.startsWith('http') 
+                              ? selectedAnimal.image_url 
+                              : `${API_BASE_URL}${selectedAnimal.image_url}` 
+                          } 
+                        : null
+                    } 
+                    style={styles.drawerImage} 
+                  />
+                   
                   <View style={styles.infoRow}>
                     <View style={styles.infoBadge}><Ionicons name="paw" size={16} color="#4A90E2" /><Text style={styles.infoBadgeText}>{selectedAnimal?.species}</Text></View>
                     <View style={[styles.infoBadge, {backgroundColor: '#FFF0F0'}]}><Ionicons name="medical" size={16} color="#FF6B6B" /><Text style={[styles.infoBadgeText, {color: '#FF6B6B'}]}>{selectedAnimal?.health}</Text></View>
-                    
+                     
                     {/* ADIÇÃO: Badge de Tempo Relativo (Visto há X min) */}
                     <View style={[styles.infoBadge, {backgroundColor: '#F5F5F5'}]}>
                       <Ionicons name="time-outline" size={16} color="#666" />
@@ -370,7 +383,7 @@ export default function MapScreen() {
             </View>
 
             <Text style={styles.presetLabel}>Escolha ou digite um valor:</Text>
-            
+             
             <View style={styles.presetContainer}>
               {['5', '10', '25', '50'].map(val => (
                 <TouchableOpacity 
@@ -468,7 +481,7 @@ export default function MapScreen() {
             <Text style={styles.modalTitle}>Validar Resgate ❤️</Text>
             <TextInput placeholder="Seu Nome" value={rescuerName} onChangeText={setRescuerName} style={styles.input} />
             <TextInput placeholder="WhatsApp" value={rescuerContact} onChangeText={setRescuerContact} style={styles.input} keyboardType="phone-pad" />
-            
+             
             <Text style={{fontWeight:'bold', marginBottom:10, color:'#333'}}>Foto de Prova (Final Feliz) 📸</Text>
             <TouchableOpacity onPress={pickRescueImage} style={styles.imagePickerMini}>
               {rescueImage ? <Image source={{ uri: rescueImage }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
@@ -532,7 +545,7 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#2ECC71', padding: 15, borderRadius: 12, flex: 2, alignItems: 'center' },
   confirmRescueBtn: { backgroundColor: '#2ECC71', padding: 16, borderRadius: 12, alignItems: 'center' },
 
-  /* Estilos do Modal de Doação Customizado */
+  // Estilos do Modal de Doação Customizado
   donateCard: { backgroundColor: '#FFF', borderRadius: 28, padding: 24, elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
   donateHeader: { alignItems: 'center', marginBottom: 20 },
   heartCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },

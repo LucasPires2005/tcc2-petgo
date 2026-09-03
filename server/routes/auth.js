@@ -4,7 +4,7 @@ const db = require('../db');
 
 // Configuração do Mercado Pago (com Preference e Payment)
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
-const client = new MercadoPagoConfig({ accessToken: 'APP_USR-3777985475151365-072309-94db5b3b3dee1edd08fdf8fb7b78f58a-3563512986' });
+const client = new MercadoPagoConfig({ accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN });
 
 // HELPER: Calcula o multiplicador de PetCoins com base no plano do usuário
 function getMultiplier(planTier) {

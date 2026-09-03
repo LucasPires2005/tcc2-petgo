@@ -2,8 +2,41 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
+const { createClient } = require('@supabase/supabase-js');
 
-const upload = multer({ dest: 'uploads/' });
+// Configuração do Supabase Client
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Armazena a imagem temporariamente na memória RAM para fazer o upload dos bytes
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Função auxiliar para realizar o upload para o bucket 'animals' no Supabase Storage
+async function uploadToSupabase(file) {
+  if (!file) return null;
+  
+  const fileExt = file.originalname ? file.originalname.split('.').pop() : 'jpg';
+  const fileName = `rescue_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+  const { error } = await supabase.storage
+    .from('animals')
+    .upload(fileName, file.buffer, {
+      contentType: file.mimetype,
+      upsert: true
+    });
+
+  if (error) {
+    console.error('Erro no upload para o Supabase Storage:', error.message);
+    throw error;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('animals')
+    .getPublicUrl(fileName);
+
+  return publicUrlData.publicUrl;
+}
 
 // BUSCA GLOBAL
 router.get('/', (req, res) => {
@@ -16,9 +49,18 @@ router.get('/', (req, res) => {
   });
 });
 
-router.post('/', upload.single('image'), (req, res) => {
+// CADASTRO DE ANIMAL
+router.post('/', upload.single('image'), async (req, res) => {
   const { name, species, breed, health, latitude, longitude, userId, urgency } = req.body;
-  const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  
+  let imageUrl = null;
+  if (req.file) {
+    try {
+      imageUrl = await uploadToSupabase(req.file);
+    } catch (err) {
+      return res.status(500).json({ error: "Erro ao salvar imagem no Supabase Storage: " + err.message });
+    }
+  }
 
   // Garante conversão correta para números para o Postgres não recusar
   const parsedLatitude = latitude ? parseFloat(latitude) : null;
@@ -44,15 +86,24 @@ router.post('/', upload.single('image'), (req, res) => {
       console.error("ERRO AO CADASTRAR ANIMAL NO SUPABASE:", err.message);
       return res.status(500).json({ error: err.message });
     }
-    res.json({ message: "Animal cadastrado com sucesso!", ...req.body });
+    res.json({ message: "Animal cadastrado com sucesso!", ...req.body, image_url: imageUrl });
   });
 });
 
 // ROTA DE RESGATE CORRIGIDA (APLICA MULTIPLICADOR DE MOEDAS DO PLAN_TIER DO USUÁRIO)
-router.patch('/:id/rescue', upload.single('rescue_image'), (req, res) => {
+router.patch('/:id/rescue', upload.single('rescue_image'), async (req, res) => {
   const { id } = req.params;
   const { rescuer_name, rescuer_contact, userId } = req.body;
-  const rescueImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  
+  let rescueImageUrl = null;
+  if (req.file) {
+    try {
+      rescueImageUrl = await uploadToSupabase(req.file);
+    } catch (err) {
+      return res.status(500).json({ error: "Erro ao salvar imagem de resgate no Supabase Storage: " + err.message });
+    }
+  }
+
   const parsedUserId = userId ? parseInt(userId, 10) : null;
 
   db.run(
@@ -95,6 +146,7 @@ router.patch('/:id/rescue', upload.single('rescue_image'), (req, res) => {
   );
 });
 
+// BUSCA POR USUÁRIO
 router.get('/user/:userId', (req, res) => {
   db.all('SELECT * FROM animals WHERE "userId" = ?', [req.params.userId], (err, rows) => {
     if (err) {

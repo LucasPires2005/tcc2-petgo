@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 
 // Conexão com o banco de dados na nuvem (Supabase)
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.ioxunltwsawqafaabvmt:rCOuOdCbWJjNQJlf@aws-0-sa-east-1.pooler.supabase.com:5432/postgres',
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false // Necessário para conexões em nuvem
   },

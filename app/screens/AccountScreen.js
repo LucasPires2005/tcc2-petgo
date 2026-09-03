@@ -56,6 +56,11 @@ export default function AccountScreen({ navigation }) {
 
   const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
+  const getImageUri = (url) => {
+    if (!url) return undefined;
+    return /^https?:\/\//i.test(url) ? url : `${API_BASE_URL}${url}`;
+  };
+
   useFocusEffect(useCallback(() => { refreshUserData(); }, []));
 
   useEffect(() => {
@@ -487,7 +492,7 @@ export default function AccountScreen({ navigation }) {
               contentContainerStyle={{padding: 20}}
               renderItem={({item}) => (
                 <View style={styles.rescueCard}>
-                  <Image source={{ uri: `${API_BASE_URL}${item.image_url}` }} style={styles.cardImage} />
+                  <Image source={{ uri: getImageUri(item.image_url) }} style={styles.cardImage} />
                   <View style={{marginLeft: 15, flex: 1}}>
                     <Text style={styles.cardName}>{String(item.name)}</Text>
                     <Text style={{color: '#666', fontSize: 12}}>{String(item.species)}</Text>
@@ -499,7 +504,7 @@ export default function AccountScreen({ navigation }) {
                   </View>
                   {item.status === 1 && item.rescue_image_url ? (
                     <View style={styles.finalHappyBox}>
-                       <Image source={{ uri: `${API_BASE_URL}${item.rescue_image_url}` }} style={styles.rescueThumbnail} />
+                       <Image source={{ uri: getImageUri(item.rescue_image_url) }} style={styles.rescueThumbnail} />
                        <Text style={{fontSize: 8, color: '#4A90E2', fontWeight: 'bold'}}>FINAL FELIZ</Text>
                     </View>
                   ) : null}
