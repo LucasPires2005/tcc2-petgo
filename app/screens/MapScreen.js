@@ -19,6 +19,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
@@ -115,7 +116,7 @@ export default function MapScreen() {
       allowsEditing: true, 
       quality: 0.5 
     });
-    if (!result.canceled) setRescueImage(result.assets[0].uri);
+    if (!result.canceled) setRescueImage(result.assets[0]);
   }
 
   const handleMercadoPagoDonation = async () => {
@@ -183,7 +184,7 @@ export default function MapScreen() {
       allowsEditing: true, 
       quality: 0.5 
     });
-    if (!result.canceled) setImage(result.assets[0].uri);
+    if (!result.canceled) setImage(result.assets[0]);
   }
 
   async function saveAnimal() {
@@ -201,9 +202,8 @@ export default function MapScreen() {
     formData.append('urgency', urgency);
 
     if (image) {
-      const filename = image.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename);
-      formData.append('image', { uri: image, name: filename, type: match ? `image/${match[1]}` : `image` });
+      const file = new File(image.uri);
+      formData.append('image', file, image.fileName || `animal-${Date.now()}.jpg`);
     }
     try {
       const res = await fetch(API_URL, { method: 'POST', body: formData, headers: { 'ngrok-skip-browser-warning': 'true' } });
@@ -225,15 +225,8 @@ export default function MapScreen() {
     formData.append('userId', user?.id?.toString());
 
     // NOVO: Anexando a foto do resgate
-    const filename = rescueImage.split('/').pop();
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : `image`;
-     
-    formData.append('rescue_image', { 
-      uri: rescueImage, 
-      name: filename, 
-      type: type 
-    });
+    const file = new File(rescueImage.uri);
+    formData.append('rescue_image', file, rescueImage.fileName || `resgate-${Date.now()}.jpg`);
 
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
@@ -461,7 +454,7 @@ export default function MapScreen() {
                   <TextInput placeholder="Raça" placeholderTextColor="#999" value={breed} onChangeText={setBreed} style={styles.input} />
                   <TextInput placeholder="Saúde" placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
                   <TouchableOpacity onPress={pickImage} style={styles.imagePickerBtn}>
-                    {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : <Text style={{color: '#999'}}>📸 Adicionar Foto</Text>}
+                    {image ? <Image source={{ uri: image.uri }} style={styles.previewImage} /> : <Text style={{color: '#999'}}>📸 Adicionar Foto</Text>}
                   </TouchableOpacity>
                   <View style={styles.modalActions}>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}><Text style={{color: '#999'}}>Voltar</Text></TouchableOpacity>
@@ -484,7 +477,7 @@ export default function MapScreen() {
              
             <Text style={{fontWeight:'bold', marginBottom:10, color:'#333'}}>Foto de Prova (Final Feliz) 📸</Text>
             <TouchableOpacity onPress={pickRescueImage} style={styles.imagePickerMini}>
-              {rescueImage ? <Image source={{ uri: rescueImage }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
+              {rescueImage ? <Image source={{ uri: rescueImage.uri }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.confirmRescueBtn} onPress={handleRescue}><Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text></TouchableOpacity>
