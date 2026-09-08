@@ -19,7 +19,6 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
@@ -46,6 +45,8 @@ export default function MapScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false); 
   const [rescueModalVisible, setRescueModalVisible] = useState(false);
+  const [isUploadingAnimal, setIsUploadingAnimal] = useState(false);
+  const [isUploadingRescue, setIsUploadingRescue] = useState(false);
    
   // Modal de Doação Customizado
   const [donateModalVisible, setDonateModalVisible] = useState(false);
@@ -114,7 +115,7 @@ export default function MapScreen() {
     let result = await ImagePicker.launchCameraAsync({ 
       mediaTypes: ['images'], 
       allowsEditing: true, 
-      quality: 0.5 
+      quality: 0.7
     });
     if (!result.canceled) setRescueImage(result.assets[0]);
   }
@@ -182,13 +183,19 @@ export default function MapScreen() {
     let result = await ImagePicker.launchImageLibraryAsync({ 
       mediaTypes: ['images'], 
       allowsEditing: true, 
-      quality: 0.5 
+      quality: 0.7
     });
     if (!result.canceled) setImage(result.assets[0]);
   }
 
   async function saveAnimal() {
     if (!selectedLocation || !species || !health) return Alert.alert('Atenção', 'Preencha os campos obrigatórios');
+    
+    if (!image) 
+      return Alert.alert('Atenção', 'Selecione uma foto do animal');
+
+    setIsUploadingAnimal(true);
+
     const formData = new FormData();
     formData.append('name', name || "Sem nome");
     formData.append('species', species);
@@ -202,9 +209,25 @@ export default function MapScreen() {
     formData.append('urgency', urgency);
 
     if (image) {
-      const file = new File(image.uri);
-      formData.append('image', file, image.fileName || `animal-${Date.now()}.jpg`);
+      try {
+        const response = await fetch(image.uri);
+        let blob = await response.blob();
+        
+        //  NOVO: Se o blob estiver como text/plain, converter para image/jpeg
+        if (blob.type === 'text/plain' || blob.type === '') {
+          console.log('⚠️ Blob type incorreto. Corrigindo de:', blob.type, 'para: image/jpeg');
+          blob = blob.slice(0, blob.size, 'image/jpeg');
+        }
+        
+        console.log('✅ Blob final:', { size: blob.size, type: blob.type });
+        formData.append('image', blob, image.fileName || `animal-${Date.now()}.jpg`);
+      } catch (error) {
+        console.error('Erro ao converter imagem:', error);
+        setIsUploadingAnimal(false);
+        return Alert.alert('Erro', 'Falha ao processar a imagem. Tente novamente.');
+      }
     }
+    
     try {
       const res = await fetch(API_URL, { method: 'POST', body: formData, headers: { 'ngrok-skip-browser-warning': 'true' } });
       if (res.ok) {
@@ -212,21 +235,47 @@ export default function MapScreen() {
         Alert.alert('Sucesso 🎉', 'Animal cadastrado!');
         setModalVisible(false);
         setName(''); setImage(null); setUrgency('Estável'); fetchAnimals();
+      } else {
+        const errorData = await res.text();
+        console.error('Erro na resposta:', errorData);
+        Alert.alert('Erro', `Falha ao cadastrar: ${res.status}`);
       }
-    } catch (e) { Alert.alert('Erro', 'Falha na conexão'); }
+    } catch (e) { 
+      console.error('Erro ao salvar animal:', e);
+      Alert.alert('Erro', 'Falha na conexão'); 
+    } finally {
+      setIsUploadingAnimal(false);
+    }
   }
 
   async function handleRescue() {
     if (!rescuerName || !rescuerContact || !rescueImage) return Alert.alert('Atenção', 'Preencha os dados e a FOTO DE PROVA!');
+    
+    setIsUploadingRescue(true);
      
     const formData = new FormData();
     formData.append('rescuer_name', rescuerName);
     formData.append('rescuer_contact', rescuerContact);
     formData.append('userId', user?.id?.toString());
 
-    // NOVO: Anexando a foto do resgate
-    const file = new File(rescueImage.uri);
-    formData.append('rescue_image', file, rescueImage.fileName || `resgate-${Date.now()}.jpg`);
+    // NOVO: Anexando a foto do resgate com fix do MIME type
+    try {
+      const response = await fetch(rescueImage.uri);
+      let blob = await response.blob();
+      
+      //  NOVO: Se o blob estiver como text/plain, converter para image/jpeg
+      if (blob.type === 'text/plain' || blob.type === '') {
+        console.log('⚠️ Blob type incorreto. Corrigindo de:', blob.type, 'para: image/jpeg');
+        blob = blob.slice(0, blob.size, 'image/jpeg');
+      }
+      
+      console.log('✅ Blob final:', { size: blob.size, type: blob.type });
+      formData.append('rescue_image', blob, rescueImage.fileName || `resgate-${Date.now()}.jpg`);
+    } catch (error) {
+      console.error('Erro ao converter imagem de resgate:', error);
+      setIsUploadingRescue(false);
+      return Alert.alert('Erro', 'Falha ao processar a foto. Tente novamente.');
+    }
 
     try {
       const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
@@ -250,8 +299,17 @@ export default function MapScreen() {
           : '+50 PetCoins creditadas.';
           
         Alert.alert('Parabéns! ❤️', `Resgate validado com foto!\n\n${earnedText}`);
+      } else {
+        const errorData = await res.text();
+        console.error('Erro na resposta:', errorData);
+        Alert.alert('Erro', `Falha ao processar resgate: ${res.status}`);
       }
-    } catch (e) { Alert.alert('Erro', 'Falha ao processar resgate'); }
+    } catch (e) { 
+      console.error('Erro ao fazer resgate:', e);
+      Alert.alert('Erro', 'Falha ao processar resgate'); 
+    } finally {
+      setIsUploadingRescue(false);
+    }
   }
 
   const filteredAnimals = animals.filter(a => {
@@ -458,7 +516,17 @@ export default function MapScreen() {
                   </TouchableOpacity>
                   <View style={styles.modalActions}>
                     <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}><Text style={{color: '#999'}}>Voltar</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.saveButton} onPress={saveAnimal}><Text style={{color:'#FFF', fontWeight: 'bold'}}>Salvar no Mapa</Text></TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.saveButton, isUploadingAnimal && {opacity: 0.6}]} 
+                      onPress={saveAnimal}
+                      disabled={isUploadingAnimal}
+                    >
+                      {isUploadingAnimal ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={{color:'#FFF', fontWeight: 'bold'}}>Salvar no Mapa</Text>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 </ScrollView>
               </KeyboardAvoidingView>
@@ -480,7 +548,17 @@ export default function MapScreen() {
               {rescueImage ? <Image source={{ uri: rescueImage.uri }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.confirmRescueBtn} onPress={handleRescue}><Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text></TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.confirmRescueBtn, isUploadingRescue && {opacity: 0.6}]} 
+              onPress={handleRescue}
+              disabled={isUploadingRescue}
+            >
+              {isUploadingRescue ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setRescueModalVisible(false)} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#999'}}>Voltar</Text></TouchableOpacity>
           </View>
         </View>
