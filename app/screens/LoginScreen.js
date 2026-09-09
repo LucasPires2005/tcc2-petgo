@@ -7,71 +7,166 @@ import {
   StyleSheet, 
   KeyboardAvoidingView, 
   Platform,
-  Alert
+  Alert,
+  Modal,
+  ScrollView
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 
 export default function LoginScreen({ navigation }) {
-  const { login } = useContext(AuthContext);
+  const { login, requestPasswordReset } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [forgotPasswordModalVisible, setForgotPasswordModalVisible] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       return Alert.alert('Atenção', 'Preencha todos os campos para entrar.');
     }
 
-    // Validação do formato de e-mail (exige o @ e domínio válido)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       return Alert.alert('E-mail Inválido', 'Por favor, insira um e-mail no formato correto (ex: usuario@email.com).');
     }
 
-    login(email.trim(), password);
+    setIsLoading(true);
+    await login(email.trim(), password);
+    setIsLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!resetEmail.trim()) {
+      return Alert.alert('Atenção', 'Digite seu e-mail para recuperar a senha.');
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(resetEmail.trim())) {
+      return Alert.alert('E-mail Inválido', 'Por favor, insira um e-mail no formato correto.');
+    }
+
+    setIsResettingPassword(true);
+    const success = await requestPasswordReset(resetEmail.trim());
+    setIsResettingPassword(false);
+
+    if (success) {
+      setResetEmail('');
+      setForgotPasswordModalVisible(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.inner}>
-        <Text style={styles.logo}>PetGo 🐾</Text>
-        <Text style={styles.subtitle}>Ajude a salvar vidas no mapa</Text>
+    <>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={styles.inner}>
+          <Text style={styles.logo}>PetGo 🐾</Text>
+          <Text style={styles.subtitle}>Ajude a salvar vidas no mapa</Text>
 
-        <View style={styles.inputContainer}>
-          <TextInput 
-            placeholder="E-mail" 
-            placeholderTextColor="#999"
-            style={styles.input} 
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput 
-            placeholder="Senha" 
-            placeholderTextColor="#999"
-            style={styles.input} 
-            secureTextEntry 
-            onChangeText={setPassword}
-          />
+          <View style={styles.inputContainer}>
+            <TextInput 
+              placeholder="E-mail" 
+              placeholderTextColor="#999"
+              style={styles.input} 
+              onChangeText={setEmail}
+              value={email}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!isLoading}
+            />
+            <TextInput 
+              placeholder="Senha" 
+              placeholderTextColor="#999"
+              style={styles.input} 
+              secureTextEntry 
+              onChangeText={setPassword}
+              value={password}
+              editable={!isLoading}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.buttonPrimary, isLoading && styles.buttonDisabled]} 
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Entrando...' : 'Entrar'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.buttonForgot}
+            onPress={() => setForgotPasswordModalVisible(true)}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonForgotText}>Esqueci minha senha</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.buttonSecondary}
+            onPress={() => navigation.navigate('Cadastro')}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonSecondaryText}>Não tem conta? Cadastre-se</Text>
+          </TouchableOpacity>
         </View>
+      </KeyboardAvoidingView>
 
-        <TouchableOpacity 
-          style={styles.buttonPrimary} 
-          onPress={handleLogin}
-        >
-          <Text style={styles.buttonText}>Entrar</Text>
-        </TouchableOpacity>
+      {/* Modal de "Esqueci Senha" */}
+      <Modal
+        visible={forgotPasswordModalVisible}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ScrollView>
+              <Text style={styles.modalTitle}>🔑 Recuperar Senha</Text>
+              <Text style={styles.modalDescription}>
+                Digite seu e-mail para receber um link de recuperação de senha.
+              </Text>
 
-        <TouchableOpacity 
-          style={styles.buttonSecondary} 
-          onPress={() => navigation.navigate('Cadastro')}
-        >
-          <Text style={styles.buttonSecondaryText}>Não tem conta? Cadastre-se</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+              <TextInput
+                placeholder="Seu e-mail"
+                placeholderTextColor="#999"
+                style={styles.input}
+                onChangeText={setResetEmail}
+                value={resetEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                editable={!isResettingPassword}
+              />
+
+              <TouchableOpacity
+                style={[styles.buttonPrimary, isResettingPassword && styles.buttonDisabled]}
+                onPress={handleForgotPassword}
+                disabled={isResettingPassword}
+              >
+                <Text style={styles.buttonText}>
+                  {isResettingPassword ? 'Enviando...' : 'Enviar Link de Recuperação'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.buttonSecondary}
+                onPress={() => {
+                  setForgotPasswordModalVisible(false);
+                  setResetEmail('');
+                }}
+                disabled={isResettingPassword}
+              >
+                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -83,7 +178,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     padding: 30,
-    justifyContent: 'center', // Corrigido para centralizar perfeitamente no meio da tela
+    justifyContent: 'center',
     alignItems: 'stretch',
   },
   logo: {
@@ -122,10 +217,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
   },
+  buttonDisabled: {
+    backgroundColor: '#B0C4E2',
+    opacity: 0.7,
+  },
   buttonText: {
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  buttonForgot: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  buttonForgotText: {
+    color: '#E74C3C',
+    fontSize: 14,
+    fontWeight: '600',
   },
   buttonSecondary: {
     marginTop: 20,
@@ -135,5 +243,31 @@ const styles = StyleSheet.create({
     color: '#4A90E2',
     fontSize: 15,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 30,
+    minHeight: '50%',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4A90E2',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 20,
   },
 });

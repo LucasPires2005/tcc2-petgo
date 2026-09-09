@@ -143,7 +143,7 @@ export function AuthProvider({ children }) {
       });
       const data = await response.json();
       if (response.ok) { 
-        Alert.alert('Sucesso 🎉', 'Conta criada!'); 
+        Alert.alert('Sucesso 🎉', 'Conta criada! Verifique seu e-mail para ativar a conta.'); 
         return true; 
       } else { 
         Alert.alert('Erro no Cadastro', data.error || 'Falha ao criar conta.');
@@ -152,6 +152,74 @@ export function AuthProvider({ children }) {
     } catch (error) { 
       Alert.alert('Erro', 'Falha na conexão.');
       return false; 
+    }
+  }
+
+  // NOVA FUNÇÃO: Enviar link de confirmação de e-mail
+  async function resendConfirmationEmail(email) {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const response = await fetch(`${BASE_URL}/auth/resend-confirmation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('E-mail Reenviado ✉️', 'Verifique sua caixa de entrada ou spam.');
+        return true;
+      } else {
+        Alert.alert('Erro', data.error || 'Falha ao reenviar e-mail.');
+        return false;
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Falha na conexão.');
+      return false;
+    }
+  }
+
+  // NOVA FUNÇÃO: Solicitar recuperação de senha
+  async function requestPasswordReset(email) {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const response = await fetch(`${BASE_URL}/auth/request-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('E-mail Enviado ✉️', 'Verifique seu e-mail para redefinir a senha.');
+        return true;
+      } else {
+        Alert.alert('Erro', data.error || 'E-mail não encontrado.');
+        return false;
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Falha na conexão.');
+      return false;
+    }
+  }
+
+  // NOVA FUNÇÃO: Confirmar novo token de senha (após clicar no link do e-mail)
+  async function resetPasswordWithToken(token, newPassword) {
+    try {
+      const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('Sucesso! 🎉', 'Sua senha foi alterada com sucesso.');
+        return true;
+      } else {
+        Alert.alert('Erro', data.error || 'Token inválido ou expirado.');
+        return false;
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Falha na conexão.');
+      return false;
     }
   }
 
@@ -215,6 +283,7 @@ export function AuthProvider({ children }) {
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
       buyPremium, donateCoins, subscribeToPlan, deleteAccount, awardCoins,
+      resendConfirmationEmail, requestPasswordReset, resetPasswordWithToken,
       logout: () => setUser(null)
     }}>
       {children}
