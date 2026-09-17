@@ -16,11 +16,12 @@ import {
   Linking,
   ActivityIndicator
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
+import { getBestAvailableLocation } from '../services/location';
+import PetMap from '../components/PetMap';
 
 // Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
 const getRelativeTime = (dateString) => {
@@ -42,6 +43,8 @@ export default function MapScreen() {
   const { user, refreshUserData, animals, fetchAnimals } = useContext(AuthContext); 
    
   const [location, setLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false); 
   const [rescueModalVisible, setRescueModalVisible] = useState(false);
@@ -95,13 +98,23 @@ export default function MapScreen() {
   }, []);
 
   async function getLocation() {
+    setLocationLoading(true);
+    setLocationError(null);
+
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      let loc = await Location.getCurrentPositionAsync({});
+      if (status !== 'granted') {
+        setLocationError('Permita o acesso à localização para abrir o mapa.');
+        return;
+      }
+
+      const loc = await getBestAvailableLocation();
       setLocation(loc.coords);
     } catch (err) {
       console.log('Erro de localização:', err);
+      setLocationError('Não foi possível obter sua localização. Ative o GPS e tente novamente.');
+    } finally {
+      setLocationLoading(false);
     }
   }
 
@@ -317,40 +330,47 @@ export default function MapScreen() {
     return a.status === 0 && a.species === filter;
   });
 
-  if (!location) return null;
+  if (locationLoading) {
+    return <View style={styles.locationState}><ActivityIndicator size="large" color="#4A90E2" /></View>;
+  }
+
+  if (locationError || !location) {
+    return (
+      <View style={styles.locationState}>
+        <Text style={styles.locationErrorText}>{locationError}</Text>
+        <TouchableOpacity style={styles.locationRetryButton} onPress={getLocation}>
+          <Text style={styles.locationRetryText}>Tentar novamente</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const validMapAnimals = filteredAnimals
+    .map(animal => ({
+      ...animal,
+      latitude: Number(animal.latitude),
+      longitude: Number(animal.longitude),
+      markerColor:
+        animal.urgency === 'Crítico' ? '#E74C3C' :
+        animal.urgency === 'Alerta' ? '#F1C40F' :
+        animal.urgency === 'Estável' ? '#2ECC71' :
+        animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B'
+    }))
+    .filter(animal => Number.isFinite(animal.latitude) && Number.isFinite(animal.longitude));
 
   return (
     <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{ latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }}
-        onLongPress={(e) => setSelectedLocation(e.nativeEvent.coordinate)}
-      >
-        <Marker coordinate={location}>
-          <View style={[styles.userMarker, user?.is_premium ? styles.userMarkerPremium : null]}>
-            <Ionicons name={user?.is_premium ? "star" : "person"} size={20} color="#FFF" />
-          </View>
-        </Marker>
-
-        {filteredAnimals.map((animal) => (
-          <Marker key={animal.id} coordinate={{ latitude: animal.latitude, longitude: animal.longitude }} onPress={() => { setSelectedAnimal(animal); setDetailVisible(true); }}>
-            {/* AJUSTE: Cor do Marcador baseada na Urgência (Semáforo Blindado) */}
-            <View style={[
-              styles.petMarker, 
-              { backgroundColor: 
-                  animal.urgency === 'Crítico' ? '#E74C3C' : 
-                  animal.urgency === 'Alerta' ? '#F1C40F' :  
-                  animal.urgency === 'Estável' ? '#2ECC71' : 
-                  animal.species === 'Gato' ? '#FF9F43' : '#FF6B6B' 
-              }
-            ]}>
-              <Ionicons name="paw" size={16} color="#FFF" />
-            </View>
-          </Marker>
-        ))}
-
-        {selectedLocation && <Marker coordinate={selectedLocation}><Ionicons name="location" size={40} color="#2ECC71" /></Marker>}
-      </MapView>
+      <PetMap
+        location={location}
+        animals={validMapAnimals}
+        selectedLocation={selectedLocation}
+        isPremium={Boolean(user?.is_premium)}
+        onSelectLocation={setSelectedLocation}
+        onSelectAnimal={(animal) => {
+          setSelectedAnimal(animal);
+          setDetailVisible(true);
+        }}
+      />
 
       <View style={styles.filterContainer}>
         {['Todos', 'Cachorro', 'Gato'].map(f => (
@@ -570,6 +590,10 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  locationState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#FFF' },
+  locationErrorText: { color: '#666', fontSize: 16, textAlign: 'center', marginBottom: 18 },
+  locationRetryButton: { backgroundColor: '#4A90E2', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
+  locationRetryText: { color: '#FFF', fontWeight: 'bold' },
   userMarker: { backgroundColor: '#4A90E2', padding: 6, borderRadius: 20, borderWidth: 2, borderColor: '#FFF' },
   userMarkerPremium: { backgroundColor: '#FFD700', borderColor: '#B8860B' },
   petMarker: { padding: 6, borderRadius: 15, borderWidth: 2, borderColor: '#FFF' },

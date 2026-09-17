@@ -1,23 +1,40 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import Slider from '@react-native-community/slider';
 import * as Location from 'expo-location';
 import { AuthContext } from '../context/AuthContext';
+import { getBestAvailableLocation } from '../services/location';
 
 export default function NearbyScreen() {
   const { animals } = useContext(AuthContext);
   const [location, setLocation] = useState(null);
   const [radius, setRadius] = useState(10);
   const [loading, setLoading] = useState(true);
+  const [locationError, setLocationError] = useState(null);
+
+  async function loadLocation() {
+    setLoading(true);
+    setLocationError(null);
+
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Permita o acesso à localização para ver os animais próximos.');
+        return;
+      }
+
+      const loc = await getBestAvailableLocation();
+      setLocation(loc.coords);
+    } catch (error) {
+      console.log('Erro de localização:', error);
+      setLocationError('Não foi possível obter sua localização. Ative o GPS e tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      let loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc.coords);
-      setLoading(false);
-    })();
+    loadLocation();
   }, []);
 
   function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -30,7 +47,18 @@ export default function NearbyScreen() {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
-  if (loading || !location) return <View style={styles.center}><ActivityIndicator size="large" color="#4A90E2" /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#4A90E2" /></View>;
+
+  if (locationError || !location) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.locationError}>{locationError}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadLocation}>
+          <Text style={styles.retryButtonText}>Tentar novamente</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const filtered = animals
     .filter(a => a.status === 0)
@@ -71,5 +99,8 @@ const styles = StyleSheet.create({
   animalInfo: { color: '#666' },
   distanceText: { fontWeight: 'bold', color: '#4A90E2' },
   empty: { textAlign: 'center', marginTop: 50, color: '#999' },
-  center: { flex: 1, justifyContent: 'center' }
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+  locationError: { color: '#666', fontSize: 16, textAlign: 'center', marginBottom: 18 },
+  retryButton: { backgroundColor: '#4A90E2', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
+  retryButtonText: { color: '#FFF', fontWeight: 'bold' }
 });
