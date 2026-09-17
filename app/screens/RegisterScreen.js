@@ -84,7 +84,12 @@ export default function RegisterScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.confirmationBox}>
             <Text style={styles.confirmationTitle}>✉️ Confirme seu E-mail</Text>
             <Text style={styles.confirmationText}>
@@ -126,7 +131,12 @@ export default function RegisterScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Criar Conta</Text>
         <Text style={styles.subtitle}>Junte-se à nossa comunidade</Text>
 
@@ -211,7 +221,11 @@ export default function RegisterScreen({ navigation }) {
         </TouchableOpacity>
 
         {/* Modal de Termos */}
-        <Modal visible={termsVisible} animationType="slide">
+        <Modal
+          visible={termsVisible}
+          animationType="slide"
+          onRequestClose={() => setTermsVisible(false)}
+        >
           <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Termos de Uso</Text>
@@ -239,16 +253,16 @@ export default function RegisterScreen({ navigation }) {
                 <Text style={styles.termsBold}>5. Aceite{'\n'}</Text>
                 Ao marcar a caixa de seleção e efetuar o cadastro, o usuário declara ter lido, compreendido e concordado expressamente com todos os termos descritos acima.
               </Text>
+              <TouchableOpacity
+                style={styles.termsButton}
+                onPress={() => {
+                  setAgreed(true);
+                  setTermsVisible(false);
+                }}
+              >
+                <Text style={styles.termsButtonText}>Concordar e Fechar</Text>
+              </TouchableOpacity>
             </ScrollView>
-            <TouchableOpacity
-              style={styles.termsButton}
-              onPress={() => {
-                setAgreed(true);
-                setTermsVisible(false);
-              }}
-            >
-              <Text style={styles.termsButtonText}>Concordar e Fechar</Text>
-            </TouchableOpacity>
           </SafeAreaView>
         </Modal>
       </ScrollView>
@@ -264,6 +278,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 30,
+    paddingBottom: 48,
     justifyContent: 'center',
   },
   title: {
@@ -343,6 +358,7 @@ const styles = StyleSheet.create({
   },
   termsContent: {
     padding: 25,
+    paddingBottom: 48,
   },
   termsText: {
     fontSize: 15,
@@ -358,7 +374,7 @@ const styles = StyleSheet.create({
   termsButton: {
     backgroundColor: '#4A90E2',
     padding: 18,
-    margin: 20,
+    marginTop: 24,
     borderRadius: 12,
     alignItems: 'center',
   },

@@ -211,7 +211,6 @@ export function AuthProvider({ children }) {
       });
       const data = await response.json();
       if (response.ok) {
-        Alert.alert('Sucesso! 🎉', 'Sua senha foi alterada com sucesso.');
         return true;
       } else {
         Alert.alert('Erro', data.error || 'Token inválido ou expirado.');

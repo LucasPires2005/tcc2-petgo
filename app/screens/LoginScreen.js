@@ -63,7 +63,12 @@ export default function LoginScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <View style={styles.inner}>
+        <ScrollView
+          contentContainerStyle={styles.inner}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.logo}>PetGo 🐾</Text>
           <Text style={styles.subtitle}>Ajude a salvar vidas no mapa</Text>
 
@@ -114,7 +119,7 @@ export default function LoginScreen({ navigation }) {
           >
             <Text style={styles.buttonSecondaryText}>Não tem conta? Cadastre-se</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Modal de "Esqueci Senha" */}
@@ -122,49 +127,62 @@ export default function LoginScreen({ navigation }) {
         visible={forgotPasswordModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setForgotPasswordModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView>
-              <Text style={styles.modalTitle}>🔑 Recuperar Senha</Text>
-              <Text style={styles.modalDescription}>
-                Digite seu e-mail para receber um link de recuperação de senha.
-              </Text>
-
-              <TextInput
-                placeholder="Seu e-mail"
-                placeholderTextColor="#999"
-                style={styles.input}
-                onChangeText={setResetEmail}
-                value={resetEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                editable={!isResettingPassword}
-              />
-
-              <TouchableOpacity
-                style={[styles.buttonPrimary, isResettingPassword && styles.buttonDisabled]}
-                onPress={handleForgotPassword}
-                disabled={isResettingPassword}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalKeyboardView}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.buttonText}>
-                  {isResettingPassword ? 'Enviando...' : 'Enviar Link de Recuperação'}
+                <Text style={styles.modalTitle}>🔑 Recuperar Senha</Text>
+                <Text style={styles.modalDescription}>
+                  Digite seu e-mail para receber um link de recuperação de senha.
                 </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.buttonSecondary}
-                onPress={() => {
-                  setForgotPasswordModalVisible(false);
-                  setResetEmail('');
-                }}
-                disabled={isResettingPassword}
-              >
-                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
-              </TouchableOpacity>
-            </ScrollView>
+                <TextInput
+                  placeholder="Seu e-mail"
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  onChangeText={setResetEmail}
+                  value={resetEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  editable={!isResettingPassword}
+                />
+
+                <TouchableOpacity
+                  style={[styles.buttonPrimary, isResettingPassword && styles.buttonDisabled]}
+                  onPress={handleForgotPassword}
+                  disabled={isResettingPassword}
+                >
+                  <Text style={styles.buttonText}>
+                    {isResettingPassword ? 'Enviando...' : 'Enviar Link de Recuperação'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.buttonSecondary}
+                  onPress={() => {
+                    setForgotPasswordModalVisible(false);
+                    setResetEmail('');
+                  }}
+                  disabled={isResettingPassword}
+                >
+                  <Text style={styles.buttonSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -176,8 +194,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     padding: 30,
+    paddingBottom: 48,
     justifyContent: 'center',
     alignItems: 'stretch',
   },
@@ -249,12 +268,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  modalKeyboardView: {
+    flex: 1,
+  },
   modalContent: {
     backgroundColor: '#FFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 30,
-    minHeight: '50%',
+    maxHeight: '90%',
+    paddingHorizontal: 30,
+    paddingTop: 30,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   modalTitle: {
     fontSize: 24,

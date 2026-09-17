@@ -13,7 +13,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 
 export default function ResetPasswordScreen({ route, navigation }) {
-  const { resetPasswordWithToken } = useContext(AuthContext);
+  const { user, logout, resetPasswordWithToken } = useContext(AuthContext);
   const token = route.params?.token;
 
   const [newPassword, setNewPassword] = useState('');
@@ -54,7 +54,30 @@ export default function ResetPasswordScreen({ route, navigation }) {
     setIsLoading(false);
 
     if (success) {
-      navigation.navigate('Login');
+      setNewPassword('');
+      setConfirmPassword('');
+
+      Alert.alert(
+        'Senha alterada',
+        'Sua senha foi redefinida com sucesso. Entre novamente com a nova senha.',
+        [
+          {
+            text: 'Ir para o login',
+            onPress: () => {
+              if (user) {
+                logout();
+                return;
+              }
+
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }]
+              });
+            }
+          }
+        ],
+        { cancelable: false }
+      );
     }
   };
 
@@ -63,7 +86,12 @@ export default function ResetPasswordScreen({ route, navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.card}>
           <Text style={styles.logo}>PetGo 🐾</Text>
           <Text style={styles.title}>Redefinir senha</Text>
@@ -132,7 +160,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 30
+    padding: 30,
+    paddingBottom: 48
   },
   card: {
     width: '100%'

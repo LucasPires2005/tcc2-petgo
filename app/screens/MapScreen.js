@@ -19,6 +19,7 @@ import {
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
 import { getBestAvailableLocation } from '../services/location';
 import PetMap from '../components/PetMap';
@@ -41,6 +42,7 @@ const getRelativeTime = (dateString) => {
 
 export default function MapScreen() {
   const { user, refreshUserData, animals, fetchAnimals } = useContext(AuthContext); 
+  const insets = useSafeAreaInsets();
    
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -249,9 +251,12 @@ export default function MapScreen() {
         setModalVisible(false);
         setName(''); setImage(null); setUrgency('Estável'); fetchAnimals();
       } else {
-        const errorData = await res.text();
+        const errorData = await res.json().catch(() => ({}));
         console.error('Erro na resposta:', errorData);
-        Alert.alert('Erro', `Falha ao cadastrar: ${res.status}`);
+        Alert.alert(
+          res.status === 422 ? 'Imagem não permitida' : 'Erro',
+          errorData.error || `Falha ao cadastrar: ${res.status}`
+        );
       }
     } catch (e) { 
       console.error('Erro ao salvar animal:', e);
@@ -313,9 +318,12 @@ export default function MapScreen() {
           
         Alert.alert('Parabéns! ❤️', `Resgate validado com foto!\n\n${earnedText}`);
       } else {
-        const errorData = await res.text();
+        const errorData = await res.json().catch(() => ({}));
         console.error('Erro na resposta:', errorData);
-        Alert.alert('Erro', `Falha ao processar resgate: ${res.status}`);
+        Alert.alert(
+          res.status === 422 ? 'Imagem não permitida' : 'Erro',
+          errorData.error || `Falha ao processar resgate: ${res.status}`
+        );
       }
     } catch (e) { 
       console.error('Erro ao fazer resgate:', e);
@@ -394,7 +402,13 @@ export default function MapScreen() {
             <TouchableWithoutFeedback>
               <View style={styles.drawerContent}>
                 <View style={styles.drawerHandle} />
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView
+                  contentContainerStyle={{
+                    paddingBottom: Math.max(insets.bottom, 16) + 20
+                  }}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                >
                   <View style={styles.drawerHeader}>
                     <Text style={styles.drawerTitle}>{selectedAnimal?.name}</Text>
                     <TouchableOpacity onPress={() => setDetailVisible(false)}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>

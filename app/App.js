@@ -1,9 +1,10 @@
 import React, { useContext, useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, AuthContext } from './context/AuthContext';
 
@@ -55,9 +56,25 @@ function getAccessTokenFromUrl(url) {
   return decodeURIComponent(match[1]);
 }
 
+function getDeepLinkParameter(url, name) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = url.match(new RegExp(`[?#&]${escapedName}=([^&#]*)`));
+
+  if (!match || !match[1]) {
+    return null;
+  }
+
+  return decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
 function Routes() {
   const { user } = useContext(AuthContext);
   const navigationRef = useRef(null);
+  const userRef = useRef(user);
+  const lastRecoveryUrlRef = useRef({ url: null, handledAt: 0 });
+  const lastConfirmationUrlRef = useRef({ url: null, handledAt: 0 });
+
+  userRef.current = user;
 
   const openRecoveryScreen = (url) => {
     if (!url.startsWith('petgo://auth/reset-password')) {
@@ -65,15 +82,70 @@ function Routes() {
     }
 
     const token = getAccessTokenFromUrl(url);
+    const now = Date.now();
+    const isDuplicate =
+      lastRecoveryUrlRef.current.url === url &&
+      now - lastRecoveryUrlRef.current.handledAt < 3000;
 
-    if (token && navigationRef.current) {
+    if (token && navigationRef.current && !isDuplicate) {
+      lastRecoveryUrlRef.current = { url, handledAt: now };
       navigationRef.current.navigate('ResetPassword', { token });
     }
   };
 
+  const showEmailConfirmationFeedback = (url) => {
+    if (!url.startsWith('petgo://auth/callback')) {
+      return;
+    }
+
+    const now = Date.now();
+    const isDuplicate =
+      lastConfirmationUrlRef.current.url === url &&
+      now - lastConfirmationUrlRef.current.handledAt < 3000;
+
+    if (isDuplicate) {
+      return;
+    }
+
+    lastConfirmationUrlRef.current = { url, handledAt: now };
+
+    const confirmationError =
+      getDeepLinkParameter(url, 'error_description') ||
+      getDeepLinkParameter(url, 'error');
+
+    if (confirmationError) {
+      Alert.alert(
+        'Não foi possível confirmar',
+        'O link de confirmação é inválido ou expirou. Solicite um novo e-mail no aplicativo.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'E-mail confirmado! 🎉',
+      'Sua conta foi ativada com sucesso. Agora você já pode entrar no PetGo.',
+      [
+        {
+          text: 'Ir para o login',
+          onPress: () => {
+            if (!userRef.current) {
+              navigationRef.current?.navigate('Login');
+            }
+          }
+        }
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const handleDeepLink = (url) => {
+    openRecoveryScreen(url);
+    showEmailConfirmationFeedback(url);
+  };
+
   useEffect(() => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      openRecoveryScreen(url);
+      handleDeepLink(url);
     });
 
     return () => {
@@ -85,7 +157,7 @@ function Routes() {
     const initialUrl = await Linking.getInitialURL();
 
     if (initialUrl) {
-      openRecoveryScreen(initialUrl);
+      handleDeepLink(initialUrl);
     }
   };
 
@@ -124,8 +196,10 @@ function Routes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Routes />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

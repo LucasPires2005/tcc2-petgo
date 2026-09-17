@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
+const { moderateImage } = require('../services/imageModeration');
 
 // Configuração do Supabase Client
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.SUPABASE_URL;
@@ -10,7 +11,48 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Armazena a imagem temporariamente na memória RAM para fazer o upload dos bytes
-const upload = multer({ storage: multer.memoryStorage() });
+const ALLOWED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif'
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, callback) => {
+    if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
+      return callback(new Error('Formato de imagem não permitido.'));
+    }
+
+    callback(null, true);
+  }
+});
+
+async function validateUploadedImage(file, res) {
+  try {
+    const moderation = await moderateImage(file);
+
+    if (!moderation.allowed) {
+      res.status(422).json({
+        error: moderation.reason,
+        code: 'IMAGE_REJECTED'
+      });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Erro na moderação de imagem:', error.message);
+    res.status(503).json({
+      error: 'Não foi possível verificar a segurança da imagem. Tente novamente.',
+      code: 'MODERATION_UNAVAILABLE'
+    });
+    return false;
+  }
+}
 
 // Função auxiliar para realizar o upload para o bucket 'animals' no Supabase Storage
 async function uploadToSupabase(file) {
@@ -52,6 +94,8 @@ router.get('/', (req, res) => {
 // CADASTRO DE ANIMAL
 router.post('/', upload.single('image'), async (req, res) => {
   const { name, species, breed, health, latitude, longitude, userId, urgency } = req.body;
+
+  if (!(await validateUploadedImage(req.file, res))) return;
   
   let imageUrl = null;
   if (req.file) {
@@ -94,6 +138,8 @@ router.post('/', upload.single('image'), async (req, res) => {
 router.patch('/:id/rescue', upload.single('rescue_image'), async (req, res) => {
   const { id } = req.params;
   const { rescuer_name, rescuer_contact, userId } = req.body;
+
+  if (!(await validateUploadedImage(req.file, res))) return;
   
   let rescueImageUrl = null;
   if (req.file) {
