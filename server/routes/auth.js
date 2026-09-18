@@ -2,6 +2,20 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { createClient } = require('@supabase/supabase-js');
+const { issueMobileToken, getMobileAccess } = require('../services/mobileSession');
+const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/requireMobileUser');
+
+const publicPaths = new Set(['/login', '/register', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
+const requireMobileUser = createRequireMobileUser({ db });
+router.use((req, res, next) => {
+  if (publicPaths.has(req.path.replace(/\/$/, '').toLowerCase())) return next();
+  return requireMobileUser(req, res, () => bindMobileIdentity(req, res, next));
+});
+// Parâmetros só estão disponíveis depois de selecionar a rota.
+router.param('id', (req, res, next, id) => {
+  if (!req.mobileUser || String(req.mobileUser.id) !== id) return res.status(403).json({ error: 'Acesso a outra conta não permitido.' });
+  next();
+});
 
 // Configuração do Supabase Auth
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -214,6 +228,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
+    const access = await getMobileAccess(db, user.id);
+    if (access?.banned) return res.status(403).json({ error: 'Sua conta está banida.', code: 'ACCOUNT_BANNED' });
+    if (!access) return res.status(401).json({ error: 'Credenciais inválidas' });
+
     // Mantém os usuários anteriores à integração funcionando.
     // Contas novas sempre possuirão auth_user_id e usarão Supabase Auth.
     if (!user.auth_user_id) {
@@ -222,6 +240,7 @@ router.post('/login', async (req, res) => {
       }
 
       return res.json({
+        accessToken: issueMobileToken(user.id, access.version),
         id: user.id,
         name: user.name,
         email: user.email,
@@ -232,7 +251,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    const loginClient = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error: loginError } = await loginClient.auth.signInWithPassword({
       email,
       password
     });
@@ -253,6 +273,7 @@ router.post('/login', async (req, res) => {
     );
 
     res.json({
+      accessToken: issueMobileToken(user.id, access.version),
       id: user.id,
       name: user.name,
       email: user.email,
@@ -368,7 +389,8 @@ router.put('/change-password', async (req, res) => {
       return res.json({ message: 'Alterada!' });
     }
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    const passwordClient = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error: loginError } = await passwordClient.auth.signInWithPassword({
       email: user.email,
       password: currentPassword
     });
@@ -775,21 +797,8 @@ router.post('/webhook', async (req, res) => {
 // ==========================================
 
 router.get('/payment-success', (req, res) => {
-  const { userId, planTier } = req.query;
-
-  if (userId && planTier) {
-    db.run(
-      'UPDATE users SET plan_tier = ? WHERE id = ?',
-      [planTier, userId],
-      (err) => {
-        if (!err) {
-          console.log(
-            `\n=======================================\n🚀 RETORNO SUCESSO: Usuário ID ${userId} subiu para o Plano ${planTier}!\n=======================================\n`
-          );
-        }
-      }
-    );
-  }
+  // Retorno de navegador não autentica pagamento. Apenas o webhook validado
+  // com a API do Mercado Pago confirma o plano; parâmetros da URL não autorizam escrita.
 
   res.send(`
     <html>

@@ -1,6 +1,6 @@
 import { apiBaseUrl } from './supabase';
 
-async function adminGet(path, accessToken, signal, method = 'GET') {
+async function adminGet(path, accessToken, signal, method = 'GET', body) {
   const controller = new AbortController();
   const cancel = () => controller.abort();
   signal?.addEventListener('abort', cancel, { once: true });
@@ -10,7 +10,8 @@ async function adminGet(path, accessToken, signal, method = 'GET') {
   try {
     const response = await fetch(`${apiBaseUrl}/admin${path}`, {
       method,
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
       cache: 'no-store',
       signal: controller.signal
     });
@@ -43,6 +44,10 @@ export async function fetchAdminAnimals(accessToken, filters, signal) {
 
 export function deleteAdminAnimal(accessToken, id) {
   return adminGet(`/animals/${encodeURIComponent(id)}`, accessToken, undefined, 'DELETE');
+}
+
+export function setAdminUserBan(accessToken, id, banned) {
+  return adminGet(`/users/${encodeURIComponent(id)}/ban`, accessToken, undefined, 'PUT', { banned });
 }
 
 export async function fetchAdminIdentity(accessToken) {

@@ -1,3 +1,4 @@
+import { mobileFetch } from '../services/mobileApi';
 import React, { useContext, useState, useCallback, useEffect } from 'react';
 import { 
   View, 
@@ -172,7 +173,7 @@ export default function AccountScreen({ navigation }) {
           selectedItem.price.replace(/[^\d,]/g, '').replace(',', '.')
         );
 
-        const response = await fetch(`${API_BASE_URL}/auth/create-preference`, {
+        const response = await mobileFetch(`${API_BASE_URL}/auth/create-preference`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -220,7 +221,7 @@ export default function AccountScreen({ navigation }) {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/buy-product`, {
+      const res = await mobileFetch(`${API_BASE_URL}/auth/buy-product`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, cost: selectedItem.coins, productName: selectedItem.name })
@@ -276,7 +277,7 @@ export default function AccountScreen({ navigation }) {
 
   const loadMyRescues = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/animals/user/${user.id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const res = await mobileFetch(`${API_BASE_URL}/animals/user/${user.id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
       const data = await res.json();
       setMyRescues(Array.isArray(data) ? data : []);
       setRescueModal(true);

@@ -1,0 +1,31 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+test('cliente mobile envia Bearer, preserva multipart e encerra sessão banida uma vez', async (t) => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../../app/services/mobileApi.js'), 'utf8');
+  const api = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+  const original = global.fetch;
+  t.after(() => { global.fetch = original; api.setMobileSession(null); });
+  let options; let status = 200; let message = {};
+  global.fetch = async (url, init) => { options = init; return new Response(JSON.stringify(message), { status }); };
+  const url = 'https://tcc-2026-1-e-2-petgo.onrender.com/animals';
+  const body = new FormData(); body.append('name', 'Teste');
+  api.setMobileSession('token');
+  let invalidated = 0;
+  const unsubscribe = api.onMobileSessionInvalid(() => invalidated++);
+  await api.mobileFetch(url, { method: 'POST', body });
+  assert.equal(options.headers.Authorization, 'Bearer token');
+  assert.equal(options.headers['Content-Type'], undefined);
+  assert.equal(options.body, body);
+  status = 503;
+  await api.mobileFetch(url); assert.equal(invalidated, 0);
+  status = 403; message = { code: 'ACCOUNT_BANNED', error: 'Banido' };
+  const response = await api.mobileFetch(url);
+  assert.equal((await response.json()).code, 'ACCOUNT_BANNED');
+  assert.equal(invalidated, 1);
+  await api.mobileFetch(url); assert.equal(invalidated, 1);
+  await assert.rejects(api.mobileFetch('https://external.test'), /Destino/);
+  unsubscribe();
+});

@@ -9,7 +9,7 @@ async function fixture(t, { admin = true, result = { total: '0', users: [] }, er
   app.use('/admin', createAdminRouter({
     auth: { getUser: async () => ({ data: { user: { id: 'id', email_confirmed_at: '2026-01-01' } } }) },
     db: { get(sql, params, callback) {
-      if (sql.includes('petgo_private.admin_users')) return callback(null, admin ? {} : null);
+      if (sql.startsWith('SELECT auth_user_id FROM petgo_private.admin_users')) return callback(null, admin ? {} : null);
       queries.push({ sql, params }); callback(error, result);
     } }
   }));
@@ -39,7 +39,9 @@ test('busca usa parâmetros literais e seleciona somente campos públicos do per
   assert.equal(response.status, 200);
   assert.deepEqual(f.queries[0].params, [term.trim().toLowerCase(), 3, 20, 20]);
   assert.ok(!f.queries[0].sql.includes(term.trim()));
-  assert.doesNotMatch(f.queries[0].sql, /password|auth_user_id|SELECT u\.\*/i);
+  assert.doesNotMatch(f.queries[0].sql, /password|SELECT u\.\*/i);
+  assert.match(f.queries[0].sql, /AS is_admin/);
+  assert.match(f.queries[0].sql, /AS banned/);
   assert.match(f.queries[0].sql, /SELECT u.id, u.name, u.email, u.coins, u.plan_tier/);
 });
 test('rejeita parâmetros inválidos e arrays antes da consulta', async (t) => {

@@ -1,8 +1,9 @@
+import { mobileFetch } from './mobileApi';
 const BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
 export async function getAnimals() {
   try {
-    const res = await fetch(`${BASE_URL}/animals`, {
+    const res = await mobileFetch(`${BASE_URL}/animals`, {
       headers: { 
         'ngrok-skip-browser-warning': 'true', // Pula o aviso do ngrok
         'Accept': 'application/json'

@@ -4,6 +4,8 @@ const db = require('../db');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { moderateImage } = require('../services/imageModeration');
+const { createRequireMobileUser, bindAnimalActor } = require('../middleware/requireMobileUser');
+router.use(createRequireMobileUser({ db }));
 
 // Configuração do Supabase Client
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.SUPABASE_URL;
@@ -92,7 +94,7 @@ router.get('/', (req, res) => {
 });
 
 // CADASTRO DE ANIMAL
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
   const { name, species, breed, health, latitude, longitude, userId, urgency } = req.body;
 
   if (!(await validateUploadedImage(req.file, res))) return;
@@ -135,7 +137,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 });
 
 // ROTA DE RESGATE CORRIGIDA (APLICA MULTIPLICADOR DE MOEDAS DO PLAN_TIER DO USUÁRIO)
-router.patch('/:id/rescue', upload.single('rescue_image'), async (req, res) => {
+router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, async (req, res) => {
   const { id } = req.params;
   const { rescuer_name, rescuer_contact, userId } = req.body;
 
@@ -194,6 +196,7 @@ router.patch('/:id/rescue', upload.single('rescue_image'), async (req, res) => {
 
 // BUSCA POR USUÁRIO
 router.get('/user/:userId', (req, res) => {
+  if (String(req.mobileUser.id) !== req.params.userId) return res.status(403).json({ error: 'Acesso a outra conta não permitido.' });
   db.all('SELECT * FROM animals WHERE "userId" = ?', [req.params.userId], (err, rows) => {
     if (err) {
       console.error("Erro no GET /user/:userId:", err.message);

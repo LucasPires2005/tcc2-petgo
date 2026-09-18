@@ -7,6 +7,33 @@ function createAdminRouter({ auth, db }) {
 
   router.get('/me', (req, res) => res.json({ admin: req.admin }));
 
+  router.put('/users/:id/ban', async (req, res) => {
+    const { id } = req.params;
+    const banned = req.body?.banned;
+    if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id)) || typeof banned !== 'boolean') {
+      return res.status(400).json({ error: 'Informe um usuário válido e a ação de banimento.' });
+    }
+    try {
+      const row = await new Promise((resolve, reject) => db.get(
+        `INSERT INTO petgo_private.user_access (user_id, banned, version)
+         SELECT u.id, ?, 1 FROM public.users u
+         WHERE u.id = ? AND NOT EXISTS (
+           SELECT 1 FROM petgo_private.admin_users a WHERE a.auth_user_id = u.auth_user_id
+         )
+         ON CONFLICT (user_id) DO UPDATE SET banned = EXCLUDED.banned,
+           version = petgo_private.user_access.version + 1, updated_at = now()
+         RETURNING user_id, banned`,
+        [banned, id], (error, result) => error ? reject(error) : resolve(result)
+      ));
+      if (!row) return res.status(409).json({ error: 'Usuário não encontrado ou conta administrativa protegida.' });
+      console.info('Acesso mobile alterado:', { adminId: req.admin.id, userId: row.user_id, banned: row.banned });
+      return res.json({ userId: row.user_id, banned: row.banned });
+    } catch (error) {
+      console.error('Falha ao alterar banimento:', { code: error.code || 'BAN_UNAVAILABLE' });
+      return res.status(503).json({ error: 'Não foi possível alterar o banimento. Atualize a lista para conferir o estado.' });
+    }
+  });
+
   router.get('/animals', async (req, res) => {
     const { q = '', page = '1' } = req.query;
     if (typeof q !== 'string' || q.length > 100 || typeof page !== 'string'
@@ -76,8 +103,10 @@ function createAdminRouter({ auth, db }) {
         db.get(
           `WITH filters AS (SELECT ?::text AS term, ?::integer AS tier),
            matched AS (
-             SELECT u.id, u.name, u.email, u.coins, u.plan_tier
-             FROM public.users u CROSS JOIN filters f
+             SELECT u.id, u.name, u.email, u.coins, u.plan_tier,
+               COALESCE(access.banned, false) AS banned,
+               EXISTS (SELECT 1 FROM petgo_private.admin_users a WHERE a.auth_user_id = u.auth_user_id) AS is_admin
+             FROM public.users u LEFT JOIN petgo_private.user_access access ON access.user_id = u.id CROSS JOIN filters f
              WHERE (f.term = '' OR POSITION(f.term IN LOWER(COALESCE(u.name, ''))) > 0
                OR POSITION(f.term IN LOWER(COALESCE(u.email, ''))) > 0)
                AND (f.tier IS NULL OR COALESCE(u.plan_tier, 0) = f.tier)

@@ -1,5 +1,6 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 import { Alert } from 'react-native';
+import { mobileFetch, setMobileSession, onMobileSessionInvalid } from '../services/mobileApi';
 
 export const AuthContext = createContext();
 
@@ -7,10 +8,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [animals, setAnimals] = useState([]);
   const BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
+  useEffect(() => onMobileSessionInvalid((message) => {
+    setUser(null); setAnimals([]);
+    Alert.alert('Acesso ao PetGo', message);
+  }), []);
+  useEffect(() => { if (!user) setMobileSession(null); }, [user]);
 
   async function fetchAnimals() {
     try {
-      const res = await fetch(`${BASE_URL}/animals`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const res = await mobileFetch(`${BASE_URL}/animals`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
       const data = await res.json();
       setAnimals(Array.isArray(data) ? data : []);
     } catch (e) { console.log("Erro de sincronização"); }
@@ -19,7 +25,7 @@ export function AuthProvider({ children }) {
   async function refreshUserData() {
     if (!user) return;
     try {
-      const res = await fetch(`${BASE_URL}/auth/update-status/${user.id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const res = await mobileFetch(`${BASE_URL}/auth/update-status/${user.id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
       const data = await res.json();
       if (res.ok) setUser(data);
     } catch (e) { console.log("Erro nas moedas"); }
@@ -29,7 +35,7 @@ export function AuthProvider({ children }) {
   async function awardCoins(baseAmount = 10) {
     if (!user) return false;
     try {
-      const response = await fetch(`${BASE_URL}/auth/add-coins`, {
+      const response = await mobileFetch(`${BASE_URL}/auth/add-coins`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, baseAmount }),
@@ -48,7 +54,7 @@ export function AuthProvider({ children }) {
 
   async function buyPremium() {
     try {
-      const response = await fetch(`${BASE_URL}/auth/upgrade-pro`, {
+      const response = await mobileFetch(`${BASE_URL}/auth/upgrade-pro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
@@ -65,7 +71,7 @@ export function AuthProvider({ children }) {
 
   async function subscribeToPlan(planTier) {
     try {
-      const response = await fetch(`${BASE_URL}/auth/subscribe-plan`, {
+      const response = await mobileFetch(`${BASE_URL}/auth/subscribe-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, planTier }),
@@ -85,7 +91,7 @@ export function AuthProvider({ children }) {
 
   async function donateCoins(amount) {
     try {
-      const response = await fetch(`${BASE_URL}/auth/donate`, {
+      const response = await mobileFetch(`${BASE_URL}/auth/donate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, amount }),
@@ -101,7 +107,7 @@ export function AuthProvider({ children }) {
 
   async function redeemReward(cost) {
     try {
-      const response = await fetch(`${BASE_URL}/auth/redeem`, {
+      const response = await mobileFetch(`${BASE_URL}/auth/redeem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, cost }),
@@ -125,7 +131,13 @@ export function AuthProvider({ children }) {
       });
       const data = await res.json();
       if (res.ok) { 
-        setUser(data); 
+        const { accessToken, ...profile } = data;
+        if (!accessToken) {
+          Alert.alert('Atualização necessária', 'O servidor ainda não disponibilizou a sessão segura.');
+          return;
+        }
+        setMobileSession(accessToken);
+        setUser(profile);
         fetchAnimals(); 
       } else { 
         Alert.alert('Erro', data.error || 'E-mail ou senha incorretos'); 
@@ -228,7 +240,7 @@ export function AuthProvider({ children }) {
   async function updateAccount(newName, newEmail) {
     const cleanEmail = newEmail.trim().toLowerCase();
     try {
-      const res = await fetch(`${BASE_URL}/auth/update`, {
+      const res = await mobileFetch(`${BASE_URL}/auth/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, name: newName, email: cleanEmail }),
@@ -250,7 +262,7 @@ export function AuthProvider({ children }) {
 
   async function changePassword(currentPassword, newPassword) {
     try {
-      const res = await fetch(`${BASE_URL}/auth/change-password`, {
+      const res = await mobileFetch(`${BASE_URL}/auth/change-password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, currentPassword, newPassword }),
@@ -262,7 +274,7 @@ export function AuthProvider({ children }) {
   async function deleteAccount() {
     if (!user) return false;
     try {
-      const response = await fetch(`${BASE_URL}/auth/delete/${user.id}`, {
+      const response = await mobileFetch(`${BASE_URL}/auth/delete/${user.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -286,7 +298,7 @@ export function AuthProvider({ children }) {
       login, register, updateAccount, changePassword, redeemReward, 
       buyPremium, donateCoins, subscribeToPlan, deleteAccount, awardCoins,
       resendConfirmationEmail, requestPasswordReset, resetPasswordWithToken,
-      logout: () => setUser(null)
+      logout: () => { setMobileSession(null); setUser(null); setAnimals([]); }
     }}>
       {children}
     </AuthContext.Provider>

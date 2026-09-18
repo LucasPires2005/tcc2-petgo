@@ -60,7 +60,7 @@ Não é necessário mudar SMTP, redirects mobile ou criar novas chaves secretas.
 - O horário do dashboard indica a última consulta, não um relógio atual. O seletor de fuso permite usar Computador, Brasília ou Cuiabá, exibe o deslocamento GMT e salva a preferência no navegador. O backend continua enviando ISO UTC.
 - Moderação de animais: `GET /admin/animals?q=&page=1`, busca literal por nome e páginas de 12 registros. Exibe fotos de cadastro/resgate, espécie, raça, saúde, status e urgência, sem contatos pessoais ou coordenadas.
 - `DELETE /admin/animals/:id` exige autorização administrativa e remove apenas o registro indicado. O painel pede confirmação, impede cliques repetidos e atualiza a página após sucesso. A exclusão não tem desfazer no painel; imagens ficam no Storage e moedas/contas não são alteradas. Imagens retidas continuam acessíveis por URL: esta etapa não é remoção completa de mídia. Dependências de banco impedem a exclusão com erro 409.
-- Banimento e exclusão de usuários continuam em preparação. O mobile e sua autenticação não foram alterados.
+- Banir/desbanir usuários está disponível, com proteção de contas ADM e revogação de sessões mobile. Exclusão de usuários continua fora desta etapa. Antes de publicar, siga [o roteiro de segurança](../server/SECURITY_ROLLOUT.md): exige SQL 002, chave secreta no Render e app atualizado.
 
 ## Arquitetura de autorização
 
@@ -68,7 +68,7 @@ O Supabase Client faz o login. O backend valida token e associação na tabela p
 
 Se houver leituras diretas pelo navegador no futuro, deverão ter políticas RLS revisadas. Não liberar tabelas administrativas publicamente.
 
-Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, senha SMTP ou `DATABASE_URL` no frontend. As rotas mobile existentes não passam a ser protegidas por esta mudança: antes de implementar banimento e gestão, será necessário revisar a autorização dessas rotas também.
+Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, `MOBILE_JWT_SECRET`, senha SMTP ou `DATABASE_URL` no frontend. A API mobile usa JWT próprio; o painel continua usando Supabase Auth e a tabela privada de administradores.
 
 ## Verificação
 

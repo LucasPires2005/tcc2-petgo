@@ -1,3 +1,4 @@
+import { mobileFetch } from '../services/mobileApi';
 import React, { useContext, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,7 +67,7 @@ export default function SubscriptionScreen({ navigation }) {
 
     pollingRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/auth/update-status/${user.id}`);
+        const response = await mobileFetch(`${API_BASE_URL}/auth/update-status/${user.id}`);
         const updatedUser = await response.json();
 
         if (updatedUser && updatedUser.plan_tier === targetTier) {
@@ -94,7 +95,7 @@ export default function SubscriptionScreen({ navigation }) {
             try {
               const cleanPrice = plan.price.replace('R$ ', '').replace(',', '.');
 
-              const response = await fetch(`${API_BASE_URL}/auth/create-preference`, {
+              const response = await mobileFetch(`${API_BASE_URL}/auth/create-preference`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

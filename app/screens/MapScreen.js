@@ -1,3 +1,4 @@
+import { mobileFetch } from '../services/mobileApi';
 import React, { useEffect, useState, useContext } from 'react';
 import { 
   View, 
@@ -144,7 +145,7 @@ export default function MapScreen() {
 
     setIsProcessingPayment(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/create-preference`, {
+      const response = await mobileFetch(`${API_BASE_URL}/auth/create-preference`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -244,7 +245,7 @@ export default function MapScreen() {
     }
     
     try {
-      const res = await fetch(API_URL, { method: 'POST', body: formData, headers: { 'ngrok-skip-browser-warning': 'true' } });
+      const res = await mobileFetch(API_URL, { method: 'POST', body: formData, headers: { 'ngrok-skip-browser-warning': 'true' } });
       if (res.ok) {
         setSelectedLocation(null);
         Alert.alert('Sucesso 🎉', 'Animal cadastrado!');
@@ -296,7 +297,7 @@ export default function MapScreen() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
+      const res = await mobileFetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
         method: 'PATCH',
         body: formData,
         headers: { 'ngrok-skip-browser-warning': 'true' },
