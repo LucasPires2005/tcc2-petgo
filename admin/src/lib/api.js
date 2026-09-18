@@ -45,3 +45,13 @@ export async function fetchAdminSummary(accessToken, signal) {
   }
   return data;
 }
+
+export async function fetchAdminUsers(accessToken, filters, signal) {
+  const query = new URLSearchParams(filters);
+  const data = await adminGet(`/users?${query}`, accessToken, signal);
+  if (!Array.isArray(data.users) || !Number.isSafeInteger(data.total) || data.total < 0
+      || !Number.isSafeInteger(data.totalPages) || data.totalPages < 0) {
+    throw new Error('O servidor retornou uma listagem inválida. Tente novamente.');
+  }
+  return data;
+}

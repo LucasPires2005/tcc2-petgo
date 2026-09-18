@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { fetchAdminSummary } from '../lib/api';
+import UpdatedAt from '../components/UpdatedAt';
 
 const numberFormat = new Intl.NumberFormat('pt-BR');
-const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
 
 export default function DashboardPage() {
   const { accessToken, invalidateAccess } = useAdminAuth();
@@ -72,14 +72,14 @@ export default function DashboardPage() {
           </div>
         ))}
       </dl>
-      {summary && <p className="mt-4 text-sm text-slate-500">Atualizado em {dateFormat.format(new Date(summary.updatedAt))}.</p>}
+      {summary && <UpdatedAt value={summary.updatedAt} />}
       {summary?.users === 0 && summary?.animals === 0 && (
         <p className="mt-4 rounded-xl bg-white p-4 text-slate-600">Ainda não há usuários ou animais cadastrados no aplicativo.</p>
       )}
 
       <div className="mt-10 border-t border-slate-200 pt-6">
-        <h2 className="font-semibold">Próximas áreas do painel</h2>
-        <p className="mt-2 text-sm text-slate-500">Gestão de usuários e moderação de animais ainda estão em preparação.</p>
+        <h2 className="font-semibold">Áreas do painel</h2>
+        <p className="mt-2 text-sm text-slate-500">Consulte os usuários e planos. A moderação de animais será o próximo bloco.</p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm font-medium text-brand-700">
           <Link to="/usuarios" className="underline underline-offset-4">Usuários</Link>
           <Link to="/animais" className="underline underline-offset-4">Animais</Link>

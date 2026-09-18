@@ -56,7 +56,9 @@ Não é necessário mudar SMTP, redirects mobile ou criar novas chaves secretas.
 - Backend valida o token com `getUser(token)` e consulta a tabela privada a cada chamada administrativa.
 - Dashboard com contagens reais de `public.users` e `public.animals`, consultadas por `GET /admin/summary`. O total de animais inclui todos os status; o de usuários conta perfis PetGo, não todas as contas de `auth.users`.
 - Atualização manual, horário da consulta, estado vazio e mensagens de erro. Em falhas de atualização, as últimas contagens ficam identificadas como antigas; 401/403 bloqueiam a tela e retornam ao login.
-- Gestão de usuários e animais continua em preparação, sem operações de exclusão/banimento.
+- Listagem de usuários por `GET /admin/users?q=&plan=&page=1`, protegida pelo mesmo middleware. Busca literal por trecho de nome/e-mail, filtro de plano e paginação fixa de 20 registros. Retorna apenas ID, nome, e-mail, moedas e plano (sem senhas ou tokens). Plano: 0/nulo = sem plano, 1 = Amigo, 2 = Protetor, 3 = Guardião; não é comprovação de pagamento.
+- O horário do dashboard indica a última consulta, não um relógio atual. O seletor de fuso permite usar Computador, Brasília ou Cuiabá, exibe o deslocamento GMT e salva a preferência no navegador. O backend continua enviando ISO UTC.
+- Banimento, exclusão e moderação de animais continuam em preparação.
 
 ## Arquitetura de autorização
 
@@ -68,7 +70,9 @@ Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, senha SMTP ou `DATABASE_URL
 
 ## Verificação
 
-Na raiz: `node --test server/tests/requireAdmin.test.js server/tests/adminSummary.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Os testes de resumo fazem requisições HTTP a um servidor efêmero apenas no localhost. Na pasta admin: `npm.cmd run build`.
+Na raiz: `node --test server/tests/requireAdmin.test.js server/tests/adminSummary.test.js server/tests/adminUsers.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Os testes de rotas fazem requisições HTTP a um servidor efêmero apenas no localhost. Na pasta admin: `npm.cmd run build`.
+
+Para validar a listagem, publique o backend e abra Usuários no painel local. Teste busca por nome/e-mail, plano, limpar filtros, usuário inexistente e paginação quando houver mais de 20 perfis. Em Visão geral, selecione o fuso desejado e atualize as contagens para comparar o horário. Não há nova migração SQL nem novas variáveis nesta etapa.
 
 Para testar o dashboard, publicar primeiro a nova rota do backend no Render. Depois, abrir o admin, conferir contagens contra `SELECT COUNT(*) FROM public.users;` e `SELECT COUNT(*) FROM public.animals;` no SQL Editor e usar Atualizar contagens. Esta etapa não exige nova migração, variável de ambiente ou build mobile. Não há consulta direta do navegador às tabelas.
 
