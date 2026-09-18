@@ -50,7 +50,7 @@ Não é necessário mudar SMTP, redirects mobile ou criar novas chaves secretas.
 ## Escopo atual
 
 - Rotas `/login`, `/dashboard`, `/usuarios`, `/animais` e página não encontrada.
-- Layout responsivo e páginas de preparação, sem dados fictícios ou reais.
+- Layout responsivo com dashboard, usuários e moderação de animais usando dados reais.
 - Login com Supabase, restauração/renovação de sessão e logout local (não desconecta outros dispositivos).
 - Rotas protegidas após confirmação de `/admin/me`; usuário comum recebe acesso negado.
 - Backend valida o token com `getUser(token)` e consulta a tabela privada a cada chamada administrativa.
@@ -58,7 +58,9 @@ Não é necessário mudar SMTP, redirects mobile ou criar novas chaves secretas.
 - Atualização manual, horário da consulta, estado vazio e mensagens de erro. Em falhas de atualização, as últimas contagens ficam identificadas como antigas; 401/403 bloqueiam a tela e retornam ao login.
 - Listagem de usuários por `GET /admin/users?q=&plan=&page=1`, protegida pelo mesmo middleware. Busca literal por trecho de nome/e-mail, filtro de plano e paginação fixa de 20 registros. Retorna apenas ID, nome, e-mail, moedas e plano (sem senhas ou tokens). Plano: 0/nulo = sem plano, 1 = Amigo, 2 = Protetor, 3 = Guardião; não é comprovação de pagamento.
 - O horário do dashboard indica a última consulta, não um relógio atual. O seletor de fuso permite usar Computador, Brasília ou Cuiabá, exibe o deslocamento GMT e salva a preferência no navegador. O backend continua enviando ISO UTC.
-- Banimento, exclusão e moderação de animais continuam em preparação.
+- Moderação de animais: `GET /admin/animals?q=&page=1`, busca literal por nome e páginas de 12 registros. Exibe fotos de cadastro/resgate, espécie, raça, saúde, status e urgência, sem contatos pessoais ou coordenadas.
+- `DELETE /admin/animals/:id` exige autorização administrativa e remove apenas o registro indicado. O painel pede confirmação, impede cliques repetidos e atualiza a página após sucesso. A exclusão não tem desfazer no painel; imagens ficam no Storage e moedas/contas não são alteradas. Imagens retidas continuam acessíveis por URL: esta etapa não é remoção completa de mídia. Dependências de banco impedem a exclusão com erro 409.
+- Banimento e exclusão de usuários continuam em preparação. O mobile e sua autenticação não foram alterados.
 
 ## Arquitetura de autorização
 
@@ -70,7 +72,9 @@ Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, senha SMTP ou `DATABASE_URL
 
 ## Verificação
 
-Na raiz: `node --test server/tests/requireAdmin.test.js server/tests/adminSummary.test.js server/tests/adminUsers.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Os testes de rotas fazem requisições HTTP a um servidor efêmero apenas no localhost. Na pasta admin: `npm.cmd run build`.
+Na raiz: `node --test server/tests/requireAdmin.test.js server/tests/adminSummary.test.js server/tests/adminUsers.test.js server/tests/adminAnimals.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Os testes de rotas fazem requisições HTTP a um servidor efêmero apenas no localhost. Na pasta admin: `npm.cmd run build`.
+
+Para validar Animais, publique o backend atualizado no Render e abra o painel local. Confira as duas fotos (ou fallback quando ausentes), busca, paginação e cancelamento da confirmação. Exclua somente um animal descartável criado para teste, confira a lista e atualize as contagens do dashboard. No mobile, consulte novamente os animais para refletir a mudança. Não é necessário novo APK, migração SQL ou variável de ambiente. Em timeout de exclusão, atualize a lista antes de repetir: o servidor pode já ter concluído a operação.
 
 Para validar a listagem, publique o backend e abra Usuários no painel local. Teste busca por nome/e-mail, plano, limpar filtros, usuário inexistente e paginação quando houver mais de 20 perfis. Em Visão geral, selecione o fuso desejado e atualize as contagens para comparar o horário. Não há nova migração SQL nem novas variáveis nesta etapa.
 

@@ -4,6 +4,7 @@ import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
+import AnimalsPage from './pages/AnimalsPage';
 
 const sections = [
   { path: '/dashboard', title: 'Visão geral', description: 'Contagem de animais e usuários será conectada na próxima etapa.' },
@@ -73,9 +74,7 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="usuarios" element={<UsersPage />} />
-        {sections.filter(({ path }) => path === '/animais').map(({ path, title, description }) => (
-          <Route key={path} path={path} element={<Placeholder title={title} description={description} />} />
-        ))}
+        <Route path="animais" element={<AnimalsPage />} />
         <Route path="*" element={<Placeholder title="Página não encontrada" description="Use o menu para acessar uma das páginas do painel." />} />
       </Route>
       </Route>

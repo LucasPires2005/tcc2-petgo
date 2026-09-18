@@ -1,6 +1,6 @@
 import { apiBaseUrl } from './supabase';
 
-async function adminGet(path, accessToken, signal) {
+async function adminGet(path, accessToken, signal, method = 'GET') {
   const controller = new AbortController();
   const cancel = () => controller.abort();
   signal?.addEventListener('abort', cancel, { once: true });
@@ -9,6 +9,7 @@ async function adminGet(path, accessToken, signal) {
   const timeout = setTimeout(() => controller.abort(), 65000);
   try {
     const response = await fetch(`${apiBaseUrl}/admin${path}`, {
+      method,
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',
       signal: controller.signal
@@ -29,6 +30,19 @@ async function adminGet(path, accessToken, signal) {
     clearTimeout(timeout);
     signal?.removeEventListener('abort', cancel);
   }
+}
+
+export async function fetchAdminAnimals(accessToken, filters, signal) {
+  const data = await adminGet(`/animals?${new URLSearchParams(filters)}`, accessToken, signal);
+  if (!Array.isArray(data.animals) || !Number.isSafeInteger(data.total) || data.total < 0
+      || !Number.isSafeInteger(data.totalPages) || data.totalPages < 0) {
+    throw new Error('O servidor retornou uma listagem inválida.');
+  }
+  return data;
+}
+
+export function deleteAdminAnimal(accessToken, id) {
+  return adminGet(`/animals/${encodeURIComponent(id)}`, accessToken, undefined, 'DELETE');
 }
 
 export async function fetchAdminIdentity(accessToken) {
