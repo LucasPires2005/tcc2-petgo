@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { configurationError, supabase } from '../lib/supabase';
 import { fetchAdminIdentity } from '../lib/api';
 
@@ -52,6 +52,9 @@ export function AdminAuthProvider({ children }) {
 
   const current = verification?.token === token && verification?.attempt === attempt ? verification : null;
   const loading = !ready || Boolean(token && !current);
+  const invalidateAccess = useCallback((message) => {
+    setVerification({ token, attempt, error: message });
+  }, [token, attempt]);
 
   async function signIn(email, password) {
     if (!supabase) throw new Error(configurationError);
@@ -73,9 +76,10 @@ export function AdminAuthProvider({ children }) {
 
   return (
     <AdminAuthContext.Provider value={{
-      admin: current?.admin || null, hasSession: Boolean(token), loading,
+      admin: current?.admin || null, hasSession: Boolean(token), loading, accessToken: token,
       error: configurationError || current?.error || sessionError,
-      configurationError, signIn, signOut, retry: () => setAttempt((value) => value + 1)
+      configurationError, signIn, signOut, retry: () => setAttempt((value) => value + 1),
+      invalidateAccess
     }}>
       {children}
     </AdminAuthContext.Provider>

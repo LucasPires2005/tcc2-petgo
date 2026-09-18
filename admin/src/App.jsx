@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useState } from 'react';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 
 const sections = [
   { path: '/dashboard', title: 'Visão geral', description: 'Contagem de animais e usuários será conectada na próxima etapa.' },
@@ -41,9 +42,6 @@ function Layout() {
       </aside>
       <main id="conteudo" className="w-full min-w-0 p-6 md:p-10">
         <div className="mx-auto max-w-5xl">
-          <p className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Acesso administrativo validado. Dashboard e gestão de registros serão conectados nos próximos blocos.
-          </p>
           <Outlet />
         </div>
       </main>
@@ -72,7 +70,8 @@ export default function App() {
       <Route element={<RequireAdmin />}>
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        {sections.map(({ path, title, description }) => (
+        <Route path="dashboard" element={<DashboardPage />} />
+        {sections.filter(({ path }) => path !== '/dashboard').map(({ path, title, description }) => (
           <Route key={path} path={path} element={<Placeholder title={title} description={description} />} />
         ))}
         <Route path="*" element={<Placeholder title="Página não encontrada" description="Use o menu para acessar uma das páginas do painel." />} />

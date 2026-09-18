@@ -54,7 +54,9 @@ Não é necessário mudar SMTP, redirects mobile ou criar novas chaves secretas.
 - Login com Supabase, restauração/renovação de sessão e logout local (não desconecta outros dispositivos).
 - Rotas protegidas após confirmação de `/admin/me`; usuário comum recebe acesso negado.
 - Backend valida o token com `getUser(token)` e consulta a tabela privada a cada chamada administrativa.
-- Dashboard e gestão continuam em preparação, sem operações de exclusão/banimento.
+- Dashboard com contagens reais de `public.users` e `public.animals`, consultadas por `GET /admin/summary`. O total de animais inclui todos os status; o de usuários conta perfis PetGo, não todas as contas de `auth.users`.
+- Atualização manual, horário da consulta, estado vazio e mensagens de erro. Em falhas de atualização, as últimas contagens ficam identificadas como antigas; 401/403 bloqueiam a tela e retornam ao login.
+- Gestão de usuários e animais continua em preparação, sem operações de exclusão/banimento.
 
 ## Arquitetura de autorização
 
@@ -66,7 +68,9 @@ Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, senha SMTP ou `DATABASE_URL
 
 ## Verificação
 
-Na raiz: `node --test server/tests/requireAdmin.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Na pasta admin: `npm.cmd run build`.
+Na raiz: `node --test server/tests/requireAdmin.test.js server/tests/adminSummary.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Os testes de resumo fazem requisições HTTP a um servidor efêmero apenas no localhost. Na pasta admin: `npm.cmd run build`.
+
+Para testar o dashboard, publicar primeiro a nova rota do backend no Render. Depois, abrir o admin, conferir contagens contra `SELECT COUNT(*) FROM public.users;` e `SELECT COUNT(*) FROM public.animals;` no SQL Editor e usar Atualizar contagens. Esta etapa não exige nova migração, variável de ambiente ou build mobile. Não há consulta direta do navegador às tabelas.
 
 Após configurar o ambiente, validar: admin entra; conta comum é negada; atualizar a página restaura a sessão; Sair volta ao login; abrir `/usuarios` sem sessão redireciona; revogar a associação no SQL bloqueia novas chamadas ao backend (a tela já aberta pode permanecer até recarregar/verificar de novo). O login real e a migração SQL precisam ser validados no projeto do usuário.
 
