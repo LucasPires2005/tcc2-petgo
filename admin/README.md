@@ -1,6 +1,6 @@
-# PetGo Admin — etapa 1
+# PetGo Admin — acesso administrativo
 
-Aplicação web independente de `app/` e `server/`, com React, Vite, Tailwind 3 e React Router. Supabase Client incluído como dependência para a próxima etapa.
+Aplicação web independente de `app/` e `server/`, com React, Vite, Tailwind 3, React Router e autenticação Supabase.
 
 ## Rodar a estrutura já criada
 
@@ -34,20 +34,41 @@ npx.cmd tailwindcss init -p
 
 Tailwind 3 foi escolhido para usar `tailwind.config.js`, `postcss.config.js` e as diretivas `@tailwind` solicitadas. A instalação de Tailwind 4 é diferente.
 
+## Configurar o acesso (etapa 2)
+
+1. No SQL Editor do Supabase, revisar e executar `server/sql/001_admin_access.sql`. O script cria `petgo_private.admin_users`, com RLS e sem acesso para `anon`/`authenticated`. Não altera as tabelas mobile nem promove contas automaticamente. Manter esse schema fora dos schemas expostos na Data API.
+2. Usar uma conta com e-mail confirmado em Authentication > Users (pode ser sua conta existente). Copiar o UUID de Auth, não o ID numérico de `public.users`.
+3. No final do SQL há um INSERT comentado. Executar separadamente, substituindo `UUID-DA-SUA-CONTA` pelo UUID escolhido. O RETURNING deve retornar uma linha; se retornar zero, conferir UUID e confirmação de e-mail.
+4. Publicar as alterações do servidor no Render pelo seu fluxo de commit/push. O backend usa as variáveis existentes `SUPABASE_URL`, `SUPABASE_SECRET_KEY` e `DATABASE_URL`. A conexão do banco deve ser a proprietária usada no SQL ou ter SELECT autorizado explicitamente na tabela privada; não conceder acesso ao navegador. Sem a tabela ou permissão, `/admin/me` falha fechado com 503 e registra um código no Render.
+5. Na raiz do repositório, executar `Copy-Item admin/.env.example admin/.env.local`. Preencher a URL do mesmo projeto Supabase e a chave pública **publishable** (ou a antiga chave `anon`) em `VITE_SUPABASE_PUBLISHABLE_KEY`. Não usar a chave secret/service_role.
+6. Executar `cd admin` e `npm.cmd run dev`. Após editar `.env.local`, reiniciar o Vite. Entrar com e-mail e senha da conta autorizada.
+
+O `.env.example` é um modelo versionado. O `.env.local` é ignorado pelo Git. Variáveis `VITE_` fazem parte do JavaScript público do navegador. Em produção, essas variáveis serão configuradas na Vercel, não no serviço backend do Render.
+
+Não é necessário mudar SMTP, redirects mobile ou criar novas chaves secretas. Este painel usa login por e-mail/senha; recuperação continua no aplicativo nesta etapa.
+
 ## Escopo atual
 
 - Rotas `/login`, `/dashboard`, `/usuarios`, `/animais` e página não encontrada.
 - Layout responsivo e páginas de preparação, sem dados fictícios ou reais.
-- Nenhuma autenticação ou autorização implementada nesta etapa; rotas são prévias públicas.
-- Nenhuma chamada ao Supabase ou ao backend e nenhuma operação administrativa disponível.
+- Login com Supabase, restauração/renovação de sessão e logout local (não desconecta outros dispositivos).
+- Rotas protegidas após confirmação de `/admin/me`; usuário comum recebe acesso negado.
+- Backend valida o token com `getUser(token)` e consulta a tabela privada a cada chamada administrativa.
+- Dashboard e gestão continuam em preparação, sem operações de exclusão/banimento.
 
-## Próxima etapa: acesso administrativo
+## Arquitetura de autorização
 
-O Supabase Client será usado para login. O backend deverá validar o token e a permissão administrativa em cada operação de gestão; apenas esconder rotas no React não protege o banco.
+O Supabase Client faz o login. O backend valida token e associação na tabela privada, sem confiar em `user_metadata`, ID ou papel enviado pelo cliente. As futuras rotas de gestão devem ser adicionadas ao router `server/routes/admin.js`, depois do middleware. Apenas esconder rotas no React não protege o banco.
 
 Se houver leituras diretas pelo navegador no futuro, deverão ter políticas RLS revisadas. Não liberar tabelas administrativas publicamente.
 
-Não é necessário gerar chaves ou alterar o Supabase para visualizar esta etapa. Para o login futuro, copiar `.env.example` para `.env.local` e preencher a URL e a chave **pública/publishable** do projeto existente. Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, senha SMTP ou `DATABASE_URL` no frontend. Tudo com prefixo `VITE_` pode ser lido pelo navegador.
+Nunca colocar `SUPABASE_SECRET_KEY`, `service_role`, senha SMTP ou `DATABASE_URL` no frontend. As rotas mobile existentes não passam a ser protegidas por esta mudança: antes de implementar banimento e gestão, será necessário revisar a autorização dessas rotas também.
+
+## Verificação
+
+Na raiz: `node --test server/tests/requireAdmin.test.js`. Os testes usam dependências simuladas e não acessam o Supabase. Na pasta admin: `npm.cmd run build`.
+
+Após configurar o ambiente, validar: admin entra; conta comum é negada; atualizar a página restaura a sessão; Sair volta ao login; abrir `/usuarios` sem sessão redireciona; revogar a associação no SQL bloqueia novas chamadas ao backend (a tela já aberta pode permanecer até recarregar/verificar de novo). O login real e a migração SQL precisam ser validados no projeto do usuário.
 
 ## Vercel (futuro)
 
