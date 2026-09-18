@@ -516,12 +516,33 @@ export default function MapScreen() {
       </Modal>
 
       {/* Modal Novo Registro */}
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalKeyboardContainer}
+        >
           <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContent}>
-                <ScrollView showsVerticalScrollIndicator={false}>
+            <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+              <View style={StyleSheet.absoluteFill} />
+            </TouchableWithoutFeedback>
+            <View style={styles.modalContent}>
+                <ScrollView
+                  contentContainerStyle={[
+                    styles.animalFormContent,
+                    { paddingBottom: Math.max(insets.bottom, 16) + 32 }
+                  ]}
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                >
                   <Text style={styles.modalTitle}>Novo Registro 🐾</Text>
                   <TextInput placeholder="Nome" placeholderTextColor="#999" value={name} onChangeText={setName} style={styles.input} />
                   <View style={styles.row}>
@@ -563,10 +584,9 @@ export default function MapScreen() {
                     </TouchableOpacity>
                   </View>
                 </ScrollView>
-              </KeyboardAvoidingView>
-            </TouchableWithoutFeedback>
+            </View>
           </View>
-        </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal Resgate */}
@@ -636,8 +656,10 @@ const styles = StyleSheet.create({
   donateButtonText: { color: '#FFF', fontWeight: 'bold', marginLeft: 5, fontSize: 14 },
   actionButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalKeyboardContainer: { flex: 1 },
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '85%' },
+  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '90%', overflow: 'hidden' },
+  animalFormContent: { paddingHorizontal: 25, paddingTop: 25 },
   rescueModal: { backgroundColor: '#FFF', borderRadius: 25, padding: 25, elevation: 10 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' },
   input: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#EEE', color: '#333' },

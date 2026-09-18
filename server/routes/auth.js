@@ -40,6 +40,14 @@ function runQuery(sql, params = []) {
   });
 }
 
+function logSupabaseAuthError(context, error) {
+  console.error(context, {
+    message: error?.message,
+    code: error?.code,
+    status: error?.status
+  });
+}
+
 // Configuração do Mercado Pago (com Preference e Payment)
 const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 const client = new MercadoPagoConfig({
@@ -198,7 +206,7 @@ router.post('/login', async (req, res) => {
       `SELECT id, name, email, password, coins, is_premium, plan_tier,
               email_confirmed, auth_user_id
        FROM users
-       WHERE email = ?`,
+       WHERE LOWER(TRIM(email)) = ?`,
       [email]
     );
 
@@ -446,7 +454,7 @@ router.post('/register', async (req, res) => {
 
   try {
     const existingUser = await getOne(
-      'SELECT id FROM users WHERE email = ?',
+      'SELECT id FROM users WHERE LOWER(TRIM(email)) = ?',
       [email]
     );
 
@@ -468,8 +476,17 @@ router.post('/register', async (req, res) => {
     });
 
     if (signUpError || !data.user) {
-      return res.status(400).json({
-        error: signUpError?.message || 'Não foi possível criar a conta.'
+      logSupabaseAuthError('Erro do Supabase no cadastro:', signUpError);
+
+      const emailDeliveryFailed = signUpError?.message
+        ?.toLowerCase()
+        .includes('sending confirmation email');
+
+      return res.status(emailDeliveryFailed ? 502 : 400).json({
+        error: emailDeliveryFailed
+          ? 'Não foi possível enviar o e-mail de confirmação. Tente novamente em alguns minutos.'
+          : signUpError?.message || 'Não foi possível criar a conta.',
+        code: emailDeliveryFailed ? 'CONFIRMATION_EMAIL_FAILED' : 'SIGNUP_FAILED'
       });
     }
 
@@ -523,7 +540,7 @@ router.post('/resend-confirmation', async (req, res) => {
 
   try {
     const user = await getOne(
-      'SELECT email_confirmed, auth_user_id FROM users WHERE email = ?',
+      'SELECT email_confirmed, auth_user_id FROM users WHERE LOWER(TRIM(email)) = ?',
       [email]
     );
 
@@ -546,6 +563,7 @@ router.post('/resend-confirmation', async (req, res) => {
     });
 
     if (error) {
+      logSupabaseAuthError('Erro do Supabase ao reenviar confirmação:', error);
       return res.status(400).json({
         error: 'Não foi possível reenviar o e-mail de confirmação.'
       });
@@ -575,7 +593,9 @@ router.post('/request-password-reset', async (req, res) => {
 
   try {
     const user = await getOne(
-      'SELECT auth_user_id FROM users WHERE email = ?',
+      `SELECT auth_user_id
+       FROM users
+       WHERE LOWER(TRIM(email)) = ?`,
       [email]
     );
 
@@ -588,6 +608,7 @@ router.post('/request-password-reset', async (req, res) => {
     });
 
     if (error) {
+      logSupabaseAuthError('Erro do Supabase ao enviar recuperação:', error);
       return res.status(400).json({
         error: 'Não foi possível enviar o e-mail de recuperação.'
       });

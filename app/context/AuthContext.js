@@ -189,7 +189,10 @@ export function AuthProvider({ children }) {
       });
       const data = await response.json();
       if (response.ok) {
-        Alert.alert('E-mail Enviado ✉️', 'Verifique seu e-mail para redefinir a senha.');
+        Alert.alert(
+          'Solicitação recebida ✉️',
+          data.message || 'Se o e-mail estiver cadastrado, você receberá o link de recuperação.'
+        );
         return true;
       } else {
         Alert.alert('Erro', data.error || 'E-mail não encontrado.');
