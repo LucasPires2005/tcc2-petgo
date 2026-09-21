@@ -1,4 +1,5 @@
-import { mobileFetch } from '../services/mobileApi';
+import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
+import { useCheckout } from '../context/CheckoutContext';
 import React, { useContext, useState, useCallback, useEffect } from 'react';
 import { 
   View, 
@@ -11,8 +12,7 @@ import {
   FlatList, 
   Image, 
   ScrollView, 
-  Platform,
-  Linking
+  Platform
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -26,6 +26,7 @@ const ONGS_LIST = [
 ];
 
 export default function AccountScreen({ navigation }) {
+  const { startCheckout } = useCheckout();
   const { user, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium, deleteAccount } = useContext(AuthContext);
   
   // --- ESTADOS DOS MODAIS ORIGINAIS ---
@@ -55,7 +56,6 @@ export default function AccountScreen({ navigation }) {
   const [newPass, setNewPass] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
 
-  const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
 
   const getImageUri = (url) => {
     if (!url) return undefined;
@@ -70,22 +70,6 @@ export default function AccountScreen({ navigation }) {
       setNewEmail(user.email || '');
     }
   }, [user, editModal]);
-
-  // Listener para capturar o retorno do checkout do Mercado Pago
-  useEffect(() => {
-    const handleOpenURL = (event) => {
-      if (event?.url && event.url.includes('status=approved')) {
-        Alert.alert(
-          "Compra Confirmada! 🎉",
-          "Seu pagamento via Mercado Pago foi aprovado com sucesso! Obrigado por apoiar a Loja PetGo."
-        );
-        refreshUserData();
-      }
-    };
-
-    const subscription = Linking.addEventListener('url', handleOpenURL);
-    return () => subscription.remove();
-  }, []);
 
   // Função utilitária para gerar código hash aleatório 
   const generateUniqueCode = () => {
@@ -173,13 +157,7 @@ export default function AccountScreen({ navigation }) {
           selectedItem.price.replace(/[^\d,]/g, '').replace(',', '.')
         );
 
-        const response = await mobileFetch(`${API_BASE_URL}/auth/create-preference`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          body: JSON.stringify({
+        await startCheckout({
             userId: user?.id,
             title: `Loja PetGo - ${selectedItem.name}`,
             price: numericPrice,
@@ -187,20 +165,10 @@ export default function AccountScreen({ navigation }) {
             type: 'store_purchase',
             deliveryType: deliveryType,
             deliveryInfo: deliveryType === 'ONG' ? selectedOng : deliveryAddress
-          })
         });
-
-        const data = await response.json();
-
-        if (response.ok && (data.init_point || data.sandbox_init_point)) {
-          setProductModal(false);
-          const checkoutUrl = data.sandbox_init_point || data.init_point;
-          await Linking.openURL(checkoutUrl);
-        } else {
-          Alert.alert("Erro no Mercado Pago", data.message || "Não foi possível gerar a cobrança.");
-        }
+        setProductModal(false);
       } catch (error) {
-        Alert.alert("Erro", "Falha de conexão ao processar o pagamento via Mercado Pago.");
+        Alert.alert("Erro", error.message || "Falha de conexão ao processar o pagamento via Mercado Pago.");
       } finally {
         setIsProcessingPayment(false);
       }

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import { CheckoutProvider } from './context/CheckoutContext';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -198,7 +199,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <Routes />
+        <CheckoutProvider>
+          <Routes />
+        </CheckoutProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

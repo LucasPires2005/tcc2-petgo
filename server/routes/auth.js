@@ -4,6 +4,7 @@ const db = require('../db');
 const { createClient } = require('@supabase/supabase-js');
 const { issueMobileToken, getMobileAccess } = require('../services/mobileSession');
 const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/requireMobileUser');
+const { normalizeCheckout, referenceIdentity, publicBaseUrl } = require('../services/checkout');
 
 const publicPaths = new Set(['/login', '/register', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
 const requireMobileUser = createRequireMobileUser({ db });
@@ -722,25 +723,26 @@ router.post('/reset-password', async (req, res) => {
 
 router.post('/create-preference', async (req, res) => {
   try {
-    const { title, price, planTier, userId } = req.body;
-    const baseUrl = `https://${req.headers.host}`;
+    const intent = normalizeCheckout(req.body, req.mobileUser.id);
+    const baseUrl = publicBaseUrl(process.env);
 
     const preference = new Preference(client);
     const response = await preference.create({
       body: {
         items: [
           {
-            id: String(planTier),
-            title: title,
-            unit_price: Number(price),
+            id: intent.metadata.type === 'plan' ? String(intent.metadata.plan_tier) : intent.metadata.type,
+            title: intent.metadata.title,
+            unit_price: intent.metadata.amount_cents / 100,
             quantity: 1,
             currency_id: 'BRL'
           }
         ],
-        external_reference: `${userId}_${planTier}`,
+        external_reference: intent.reference,
+        metadata: intent.metadata,
         notification_url: `${baseUrl}/auth/webhook`,
         back_urls: {
-          success: `${baseUrl}/auth/payment-success?userId=${userId}&planTier=${planTier}`,
+          success: `${baseUrl}/auth/payment-success`,
           failure: `${baseUrl}/auth/payment-failure`,
           pending: `${baseUrl}/auth/payment-pending`
         },
@@ -751,8 +753,50 @@ router.post('/create-preference', async (req, res) => {
     const checkoutUrl = response.sandbox_init_point || response.init_point;
     res.json({ id: response.id, init_point: checkoutUrl });
   } catch (error) {
-    console.error('Erro ao gerar pagamento:', error);
+    if (error.code === 'CHECKOUT_INVALID') return res.status(400).json({ error: error.message });
+    console.error('Erro ao gerar pagamento:', { status: error.status, code: error.code });
     res.status(500).json({ error: 'Falha ao comunicar com o Mercado Pago' });
+  }
+});
+
+// A preferência no provedor preserva a intenção mesmo após reiniciar o backend.
+// A consulta é autenticada e nunca aceita status de pagamento declarado pelo celular.
+router.get('/checkout-status', async (req, res) => {
+  const preferenceId = req.query.preferenceId;
+  if (typeof preferenceId !== 'string' || !/^[a-zA-Z0-9-]{1,150}$/.test(preferenceId)) {
+    return res.status(400).json({ error: 'Identificador de checkout inválido.' });
+  }
+  try {
+    const preference = await new Preference(client).get({ preferenceId });
+    const meta = preference.metadata;
+    const identity = referenceIdentity(preference.external_reference);
+    if (!meta || !identity || meta.petgo_version !== 1
+      || String(meta.user_id) !== String(req.mobileUser.id) || identity.userId !== String(req.mobileUser.id)) {
+      return res.status(403).json({ error: 'Checkout não disponível para esta conta.' });
+    }
+    if (identity.type !== meta.type || !Number.isSafeInteger(meta.amount_cents) || meta.amount_cents <= 0
+      || (identity.type === 'plan' && Number(identity.planTier) !== meta.plan_tier)) {
+      return res.status(409).json({ error: 'Dados do checkout inconsistentes.' });
+    }
+    const search = await new Payment(client).search({ options: {
+      external_reference: preference.external_reference, sort: 'date_created', criteria: 'desc', limit: 50
+    } });
+    const matching = (search.results || []).filter(payment =>
+      payment.external_reference === preference.external_reference
+      && payment.currency_id === 'BRL'
+      && Math.round(Number(payment.transaction_amount) * 100) === meta.amount_cents
+      && new Date(payment.date_created).getTime() >= new Date(preference.date_created).getTime());
+    const payment = matching.find(item => item.status === 'approved') || matching[0];
+    const status = payment?.status || 'pending';
+    if (status === 'approved' && identity.type === 'plan') {
+      await runQuery('UPDATE users SET plan_tier = ? WHERE id = ?', [identity.planTier, identity.userId]);
+    }
+    res.json({ preferenceId, status, type: meta.type, title: meta.title,
+      deliveryType: meta.delivery_type, deliveryInfo: meta.delivery_info,
+      paymentId: payment?.id ? String(payment.id) : null });
+  } catch (error) {
+    console.error('Erro ao consultar checkout:', { status: error.status, code: error.code });
+    res.status(503).json({ error: 'Não foi possível consultar o pagamento. Tente novamente.' });
   }
 });
 
@@ -766,10 +810,10 @@ router.post('/webhook', async (req, res) => {
       const paymentData = await payment.get({ id: paymentId });
 
       if (paymentData.status === 'approved') {
-        const extRef = paymentData.external_reference;
+        const identity = referenceIdentity(paymentData.external_reference);
 
-        if (extRef) {
-          const [userId, planTier] = extRef.split('_');
+        if (identity?.type === 'plan') {
+          const { userId, planTier } = identity;
 
           db.run(
             'UPDATE users SET plan_tier = ? WHERE id = ?',
@@ -797,16 +841,17 @@ router.post('/webhook', async (req, res) => {
 // ==========================================
 
 router.get('/payment-success', (req, res) => {
-  // Retorno de navegador não autentica pagamento. Apenas o webhook validado
-  // com a API do Mercado Pago confirma o plano; parâmetros da URL não autorizam escrita.
+  // Retorno de navegador não autentica pagamento. Webhook/consulta autenticada
+  // confirmam com o provedor; parâmetros da URL não autorizam escrita.
 
   res.send(`
     <html>
       <body style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; text-align:center;">
         <div>
-          <h1 style="color: #27ae60;">Pagamento Aprovado! 🎉</h1>
-          <p>Seu pagamento foi realizado com sucesso, agredemos seu apoio.</p>
-          <p>Você já pode fechar esta janela e voltar para o aplicativo <b>PetGo</b>.</p>
+          <h1 style="color: #27ae60;">Retorno ao PetGo</h1>
+          <p>Volte ao aplicativo para consultar a confirmação do pagamento e os dados de retirada ou entrega.</p>
+          <p>No Expo Go, use o seletor de aplicativos do celular. O PetGo verifica o pagamento ao voltar.</p>
+          <p><a href="petgo://checkout/return">Abrir PetGo instalado</a></p>
         </div>
       </body>
     </html>
@@ -834,7 +879,7 @@ router.get('/payment-pending', (req, res) => {
         <div>
           <h1 style="color: #f39c12;">Pagamento Pendente ⏳</h1>
           <p>Seu pagamento está aguardando confirmação.</p>
-          <p>Assim que for aprovado, seu plano será liberado no PetGo.</p>
+          <p>Volte ao PetGo para acompanhar a confirmação. No Expo Go, use o seletor de aplicativos.</p>
         </div>
       </body>
     </html>

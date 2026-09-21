@@ -64,6 +64,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     express, multer, '../db': db,
     '../services/mobileSession': session,
     '../middleware/requireMobileUser': middleware,
+    '../services/checkout': require('../../services/checkout'),
     '@supabase/supabase-js': {
       createClient: () => ({ auth, storage: { from(bucket) {
         assert.equal(bucket, 'animals');
@@ -82,13 +83,23 @@ async function routeFixture(t, route = 'auth', options = {}) {
     } },
     mercadopago: {
       MercadoPagoConfig: class {},
-      Preference: class { async create(args) {
+      Preference: class { async get(args) {
+        record('preferenceGet', args);
+        if (options.paymentError) throw options.paymentError;
+        return options.preference || { ...calls.find(c => c.kind === 'preference')?.body, date_created: '2026-09-21T00:00:00Z' };
+      }
+      async create(args) {
         record('preference', args);
         if (options.paymentError) throw options.paymentError;
         return { id: 'preference-test', sandbox_init_point: 'https://sandbox.example.test/checkout',
           init_point: 'https://live.example.test/checkout' };
       } },
-      Payment: class { async get(args) {
+      Payment: class { async search(args) {
+        record('paymentSearch', args);
+        if (options.paymentError) throw options.paymentError;
+        return { results: options.payments || [] };
+      }
+      async get(args) {
         record('payment', args);
         if (options.paymentError) throw options.paymentError;
         return options.payment || { status: 'approved', external_reference: '7_2' };
@@ -106,7 +117,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     `(function(require, module, exports, process, console) {\n${fs.readFileSync(filename, 'utf8')}\n})`, { filename }
   );
   const fakeEnv = { SUPABASE_URL: 'https://supabase.example.test', SUPABASE_SECRET_KEY: 'test-only',
-    MERCADO_PAGO_ACCESS_TOKEN: 'test-only' };
+    MERCADO_PAGO_ACCESS_TOKEN: 'test-only', ...options.env };
   load(isolatedRequire, module, module.exports, { env: fakeEnv }, {
     log: (...args) => record('log', { args }),
     error: (...args) => record('logError', { args })

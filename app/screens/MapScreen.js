@@ -1,4 +1,5 @@
-import { mobileFetch } from '../services/mobileApi';
+import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
+import { useCheckout } from '../context/CheckoutContext';
 import React, { useEffect, useState, useContext } from 'react';
 import { 
   View, 
@@ -14,7 +15,6 @@ import {
   ScrollView, 
   Share, 
   TouchableWithoutFeedback,
-  Linking,
   ActivityIndicator
 } from 'react-native';
 import * as Location from 'expo-location';
@@ -42,6 +42,7 @@ const getRelativeTime = (dateString) => {
 };
 
 export default function MapScreen() {
+  const { startCheckout } = useCheckout();
   const { user, refreshUserData, animals, fetchAnimals } = useContext(AuthContext); 
   const insets = useSafeAreaInsets();
    
@@ -76,28 +77,12 @@ export default function MapScreen() {
   const [rescuerContact, setRescuerContact] = useState('');
   const [rescueImage, setRescueImage] = useState(null); 
 
-  const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
   const API_URL = `${API_BASE_URL}/animals`;
 
   useEffect(() => { 
     getLocation(); 
     fetchAnimals(); 
 
-    // Captura o retorno do checkout (Mercado Pago) e exibe o agradecimento da doação
-    const handleOpenURL = (event) => {
-      if (event?.url && (event.url.includes('status=approved') || event.url.includes('donation=success'))) {
-        Alert.alert(
-          "Muito obrigado pela doação! ❤️",
-          "Sua contribuição foi confirmada com sucesso! Esse apoio ajuda diretamente no resgate e cuidados com os animais no PetGo. 🐾"
-        );
-        if (refreshUserData) {
-          refreshUserData().catch((err) => console.log('Erro ao atualizar usuário:', err));
-        }
-      }
-    };
-
-    const subscription = Linking.addEventListener('url', handleOpenURL);
-    return () => subscription.remove();
   }, []);
 
   async function getLocation() {
@@ -145,40 +130,16 @@ export default function MapScreen() {
 
     setIsProcessingPayment(true);
     try {
-      const response = await mobileFetch(`${API_BASE_URL}/auth/create-preference`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({
+      await startCheckout({
           userId: user?.id,
           title: `Apoio PetGo - ${selectedAnimal?.name ? 'Animal: ' + selectedAnimal.name : 'Causa Animal'}`,
           price: numericAmount,
           quantity: 1,
           type: 'donation'
-        })
       });
-
-      const data = await response.json();
-
-      if (response.ok && (data.init_point || data.sandbox_init_point)) {
-        const checkoutUrl = data.sandbox_init_point || data.init_point;
-        setDonateModalVisible(false);
-        await Linking.openURL(checkoutUrl);
-
-        // Alerta informativo acionado ao abrir a página de pagamento
-        setTimeout(() => {
-          Alert.alert(
-            "Obrigado por apoiar! 🙏",
-            "Assim que o pagamento for concluído no Mercado Pago, sua doação será confirmada."
-          );
-        }, 1000);
-      } else {
-        Alert.alert("Erro no Mercado Pago", data.message || "Não foi possível gerar o link de pagamento.");
-      }
+      setDonateModalVisible(false);
     } catch (error) {
-      Alert.alert("Erro", "Falha de conexão com a plataforma de pagamento.");
+      Alert.alert("Erro", error.message || "Falha de conexão com a plataforma de pagamento.");
     } finally {
       setIsProcessingPayment(false);
     }

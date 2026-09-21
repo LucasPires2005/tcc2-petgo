@@ -1,6 +1,6 @@
 // Token apenas em memória, como o perfil atual. Não intercepta fetch global,
 // links de e-mail, imagens locais nem requisições para serviços externos.
-const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://tcc-2026-1-e-2-petgo.onrender.com').replace(/\/$/, '');
 let token = null;
 let onInvalidSession = null;
 export function setMobileSession(accessToken) { token = accessToken || null; }

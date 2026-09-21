@@ -2,6 +2,8 @@
 
 Data: 21/09/2026. Base anterior às alterações: commit `4e65b81`.
 
+Nota posterior: na Fase 2, os cinco casos `GAP-CHECKOUT`/`GAP-TYPE` passaram e foram movidos para `checkoutValidation.test.js`. O comando `test:gaps` agora contém as três pendências restantes. As contagens abaixo registram a entrega histórica da Fase 1. Consulte [o guia da Fase 2](CHECKOUT_SANDBOX_LOCAL.md) para o fluxo atual.
+
 Esta etapa acrescenta testes e comandos locais. Não altera rotas, middleware, telas, autenticação, banco ou integrações em execução. Não requer migração, variável nova, deploy ou novo APK. Os commits continuam sob responsabilidade do autor do projeto.
 
 ## Como executar

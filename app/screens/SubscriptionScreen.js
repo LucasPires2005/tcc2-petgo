@@ -1,20 +1,13 @@
-import { mobileFetch } from '../services/mobileApi';
-import React, { useContext, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Linking, ActivityIndicator } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { useCheckout } from '../context/CheckoutContext';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
 export default function SubscriptionScreen({ navigation }) {
-  const { user, refreshUserData } = useContext(AuthContext);
-  const API_BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
-  const pollingRef = useRef(null);
-
-  // Limpa o temporizador se a tela for desmontada
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
+  const { user } = useContext(AuthContext);
+  const { startCheckout } = useCheckout();
+  const [processing, setProcessing] = useState(false);
 
   const plans = [
     {
@@ -61,28 +54,6 @@ export default function SubscriptionScreen({ navigation }) {
     }
   ];
 
-  // Inicia checagem automática em segundo plano até o plano mudar
-  const startPollingPayment = (targetTier) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-
-    pollingRef.current = setInterval(async () => {
-      try {
-        const response = await mobileFetch(`${API_BASE_URL}/auth/update-status/${user.id}`);
-        const updatedUser = await response.json();
-
-        if (updatedUser && updatedUser.plan_tier === targetTier) {
-          clearInterval(pollingRef.current);
-          if (refreshUserData) await refreshUserData();
-          
-          Alert.alert('Sucesso! 🎉', `Seu plano foi ativado automaticamente!`);
-          navigation.goBack();
-        }
-      } catch (err) {
-        console.log('Aguardando confirmação do pagamento...', err);
-      }
-    }, 3000); // Checa a cada 3 segundos
-  };
-
   const handleSubscribe = (plan) => {
     Alert.alert(
       `Assinar ${plan.name}`,
@@ -92,35 +63,20 @@ export default function SubscriptionScreen({ navigation }) {
         { 
           text: 'Ir para Pagamento', 
           onPress: async () => {
+            setProcessing(true);
             try {
               const cleanPrice = plan.price.replace('R$ ', '').replace(',', '.');
 
-              const response = await mobileFetch(`${API_BASE_URL}/auth/create-preference`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+              await startCheckout({
+                  type: 'plan',
                   title: plan.name,
                   price: cleanPrice,
                   planTier: plan.tier,
                   userId: user.id
-                })
               });
-              
-              const data = await response.json();
-
-              if (data.init_point) {
-                console.log("LINK DO SANDBOX:", data.init_point);
-                await Linking.openURL(data.init_point);
-
-                // Dispara o monitoramento automático (sem botão de 'Já Paguei')
-                startPollingPayment(plan.tier);
-              } else {
-                Alert.alert('Erro', 'Não foi possível gerar o link de pagamento.');
-              }
-
             } catch (error) {
-              Alert.alert('Erro', 'Falha na conexão com o servidor.');
-            }
+              Alert.alert('Erro', error.message || 'Falha na conexão com o servidor.');
+            } finally { setProcessing(false); }
           }
         }
       ]
@@ -179,7 +135,7 @@ export default function SubscriptionScreen({ navigation }) {
                     styles.subscribeBtn, 
                     { backgroundColor: isCurrentPlan ? '#CCC' : plan.color }
                   ]}
-                  disabled={isCurrentPlan}
+                  disabled={isCurrentPlan || processing}
                   onPress={() => handleSubscribe(plan)}
                 >
                   <Text style={styles.subscribeBtnText}>

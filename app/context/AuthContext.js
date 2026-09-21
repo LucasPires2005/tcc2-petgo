@@ -1,13 +1,13 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { Alert } from 'react-native';
-import { mobileFetch, setMobileSession, onMobileSessionInvalid } from '../services/mobileApi';
+import { mobileFetch, setMobileSession, onMobileSessionInvalid, API_BASE_URL } from '../services/mobileApi';
 
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [animals, setAnimals] = useState([]);
-  const BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
+  const BASE_URL = API_BASE_URL;
   useEffect(() => onMobileSessionInvalid((message) => {
     setUser(null); setAnimals([]);
     Alert.alert('Acesso ao PetGo', message);

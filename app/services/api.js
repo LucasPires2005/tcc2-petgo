@@ -1,5 +1,5 @@
-import { mobileFetch } from './mobileApi';
-const BASE_URL = 'https://tcc-2026-1-e-2-petgo.onrender.com';
+import { mobileFetch, API_BASE_URL } from './mobileApi';
+const BASE_URL = API_BASE_URL;
 
 export async function getAnimals() {
   try {
