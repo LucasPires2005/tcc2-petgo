@@ -6,13 +6,7 @@ const { routeFixture } = require('../helpers/routeFixture');
 
 // GAP-CHECKOUT/GAP-TYPE agora estão em ../checkoutValidation.test.js.
 
-test('GAP-WEBHOOK: notificação repetida deve ser processada apenas uma vez', async (t) => {
-  const f = await routeFixture(t);
-  const notification = { body: { type: 'payment', data: { id: 'same-payment' } } };
-  await f.request('/webhook', notification);
-  await f.request('/webhook', notification);
-  assert.equal(f.calls.filter(c => c.kind === 'run').length, 1);
-});
+// GAP-WEBHOOK agora está em ../subscriptions.test.js, incluindo concorrência.
 
 test('GAP-RESCUE: repetir o resgate não concede uma segunda recompensa', async (t) => {
   const f = await routeFixture(t, 'animals');

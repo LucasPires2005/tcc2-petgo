@@ -165,7 +165,9 @@ router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, asyn
       
       if (parsedUserId) {
         // Busca o plan_tier do usuário para calcular o multiplicador (1x, 2x ou 3x)
-        db.get(`SELECT plan_tier FROM users WHERE id = ?`, [parsedUserId], (errUser, userRow) => {
+        db.get(`SELECT CASE WHEN (subscription_start_date IS NULL AND subscription_end_date IS NULL)
+          OR subscription_end_date > statement_timestamp() THEN plan_tier ELSE 0 END AS plan_tier
+          FROM users WHERE id = ?`, [parsedUserId], (errUser, userRow) => {
           let multiplier = 1;
           if (!errUser && userRow && userRow.plan_tier) {
             const tier = parseInt(userRow.plan_tier, 10);

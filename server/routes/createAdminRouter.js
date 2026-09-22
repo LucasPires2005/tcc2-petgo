@@ -1,5 +1,6 @@
 const express = require('express');
 const { createRequireAdmin } = require('../middleware/requireAdmin');
+const { effectiveTierSql } = require('../services/subscriptions');
 
 function createAdminRouter({ auth, db }) {
   const router = express.Router();
@@ -103,13 +104,14 @@ function createAdminRouter({ auth, db }) {
         db.get(
           `WITH filters AS (SELECT ?::text AS term, ?::integer AS tier),
            matched AS (
-             SELECT u.id, u.name, u.email, u.coins, u.plan_tier,
+             SELECT u.id, u.name, u.email, u.coins, (${effectiveTierSql('u')}) AS plan_tier,
+               u.subscription_start_date, u.subscription_end_date, u.premium_start_date, u.premium_end_date,
                COALESCE(access.banned, false) AS banned,
                EXISTS (SELECT 1 FROM petgo_private.admin_users a WHERE a.auth_user_id = u.auth_user_id) AS is_admin
              FROM public.users u LEFT JOIN petgo_private.user_access access ON access.user_id = u.id CROSS JOIN filters f
              WHERE (f.term = '' OR POSITION(f.term IN LOWER(COALESCE(u.name, ''))) > 0
                OR POSITION(f.term IN LOWER(COALESCE(u.email, ''))) > 0)
-               AND (f.tier IS NULL OR COALESCE(u.plan_tier, 0) = f.tier)
+               AND (f.tier IS NULL OR (${effectiveTierSql('u')}) = f.tier)
            ), page_rows AS (
              SELECT * FROM matched ORDER BY id DESC LIMIT ? OFFSET ?
            )

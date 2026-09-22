@@ -42,7 +42,9 @@ test('busca usa parâmetros literais e seleciona somente campos públicos do per
   assert.doesNotMatch(f.queries[0].sql, /password|SELECT u\.\*/i);
   assert.match(f.queries[0].sql, /AS is_admin/);
   assert.match(f.queries[0].sql, /AS banned/);
-  assert.match(f.queries[0].sql, /SELECT u.id, u.name, u.email, u.coins, u.plan_tier/);
+  assert.match(f.queries[0].sql, /SELECT u.id, u.name, u.email, u.coins,/);
+  assert.match(f.queries[0].sql, /subscription_end_date > statement_timestamp\(\)/);
+  assert.match(f.queries[0].sql, /AS plan_tier/);
 });
 test('rejeita parâmetros inválidos e arrays antes da consulta', async (t) => {
   const f = await fixture(t);

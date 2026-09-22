@@ -65,8 +65,18 @@ export function AuthProvider({ children }) {
         Alert.alert("Parabéns! 💎", "Você agora é um Membro PRO!");
         return true;
       }
+      // A invalidação de sessão já exibe seu próprio aviso no mobileApi.
+      if (!['SESSION_INVALID', 'ACCOUNT_BANNED'].includes(data.code)) {
+        Alert.alert(
+          'Não foi possível ativar o PRO',
+          data.error || 'Verifique se você possui as 50 PetCoins necessárias e tente novamente.'
+        );
+      }
       return false;
-    } catch (e) { return false; }
+    } catch (e) {
+      Alert.alert('Falha ao ativar o PRO', 'Não foi possível concluir a solicitação. Confira sua conexão e tente novamente.');
+      return false;
+    }
   }
 
   async function subscribeToPlan(planTier) {

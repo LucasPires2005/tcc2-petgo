@@ -11,7 +11,7 @@ function saved(type = 'store_purchase', deliveryType = 'ONG') {
 }
 function payment(preference, overrides = {}) {
   return { id: 100, status: 'approved', external_reference: preference.external_reference,
-    currency_id: 'BRL', transaction_amount: 35, date_created: '2026-09-21T10:01:00Z', ...overrides };
+    currency_id: 'BRL', transaction_amount: 35, date_created: '2026-09-21T10:01:00Z', date_approved: '2026-09-21T10:02:00Z', ...overrides };
 }
 const check = f => f.request('/checkout-status?preferenceId=pref-123', { method: 'GET', token: f.token });
 
@@ -97,7 +97,9 @@ test('consulta de plano aprovado funciona mesmo sem entrega do webhook', async t
   const preference = saved('plan');
   const f = await routeFixture(t, 'auth', { preference, payments: [payment(preference)] });
   assert.equal((await check(f)).body.status, 'approved');
-  assert.deepEqual(f.calls.find(c => c.kind === 'run').params, ['2', '7']);
+  assert.equal(f.state.events.length, 1);
+  assert.equal(f.state.events[0].tier, 2);
+  assert.equal(f.state.events[0].user_id, '7');
 });
 
 test('aprovação de doação consultada não altera plano', async t => {
@@ -122,7 +124,9 @@ test('webhook novo preserva ativação de plano e rejeita referência legada inc
   const preference = saved('plan');
   const f = await routeFixture(t, 'auth', { payment: payment(preference) });
   await f.request('/webhook', { body: { type: 'payment', data: { id: 'test' } } });
-  assert.deepEqual(f.calls.find(c => c.kind === 'run').params, ['2', '7']);
+  assert.equal(f.state.events.length, 1);
+  assert.equal(f.state.events[0].tier, 2);
+  assert.equal(f.state.events[0].user_id, '7');
   const invalid = await routeFixture(t, 'auth', { payment: { status: 'approved', external_reference: '7_undefined' } });
   await invalid.request('/webhook', { body: { type: 'payment', data: { id: 'test' } } });
   assert.equal(invalid.calls.some(c => c.kind === 'run'), false);

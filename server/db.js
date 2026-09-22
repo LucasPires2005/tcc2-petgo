@@ -29,6 +29,21 @@ const convertQuery = (sql) => {
 };
 
 const db = {
+  // Uma única conexão é obrigatória para lock, registro e ativação atômicos.
+  async transaction(work) {
+    const connection = await pool.connect();
+    try {
+      await connection.query('BEGIN');
+      const result = await work(connection);
+      await connection.query('COMMIT');
+      return result;
+    } catch (error) {
+      await connection.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      connection.release();
+    }
+  },
   // Equivalente ao db.run do SQLite (Para INSERT, UPDATE, DELETE)
   run: (sql, params, callback) => {
     if (typeof params === 'function') {

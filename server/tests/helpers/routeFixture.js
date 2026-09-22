@@ -19,14 +19,16 @@ async function routeFixture(t, route = 'auth', options = {}) {
   const state = { coins: user.coins, rescued: false };
   const record = (kind, details = {}) => calls.push({ kind, ...details });
   const db = {
+    transaction: require('./subscriptionTransaction').subscriptionTransaction({ user, state, options, record }),
     get(sql, params, cb) {
       record('get', { sql, params });
       if (sql.trim().startsWith('UPDATE users SET coins')) {
         if (options.writeError) return cb(options.writeError);
         if (options.missingUser) return cb(null, null);
-        const credit = sql.includes('CASE plan_tier');
+        const credit = sql.includes('SET coins = COALESCE');
         const balance = state.coins ?? (credit ? 0 : NaN);
-        const multiplier = user.plan_tier === 3 ? 3 : user.plan_tier === 2 ? 2 : 1;
+        const effective = require('../../services/subscriptions').profileWithValidity(user);
+        const multiplier = effective.plan_tier === 3 ? 3 : effective.plan_tier === 2 ? 2 : 1;
         const upgrade = sql.includes('is_premium = 1');
         const delta = credit ? params[0] * multiplier : -params[0];
         if (!Number.isInteger(balance) || balance < 0 || balance > 2147483647
@@ -34,7 +36,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
           || (upgrade && user.is_premium === 1)) return cb(null, null);
         state.coins = balance + delta;
         if (upgrade) user.is_premium = 1;
-        return cb(null, { ...user, coins: state.coins });
+        return cb(null, { ...effective, coins: state.coins });
       }
       if (sql.includes('user_access')) {
         return cb(options.accessError, options.missingUser ? null : {
@@ -44,7 +46,8 @@ async function routeFixture(t, route = 'auth', options = {}) {
       if (sql.trim() === 'SELECT id FROM users WHERE LOWER(TRIM(email)) = ?') {
         return cb(null, options.duplicate ? user : null);
       }
-      cb(null, options.missingUser ? null : { ...user, coins: state.coins });
+      cb(null, options.missingUser ? null : { ...(sql.includes('AS plan_tier')
+        ? require('../../services/subscriptions').profileWithValidity(user) : user), coins: state.coins });
     },
     all(sql, params, cb) { record('all', { sql, params }); cb(null, []); },
     run(sql, params, cb) {
@@ -80,6 +83,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     '../services/mobileSession': session,
     '../middleware/requireMobileUser': middleware,
     '../services/checkout': require('../../services/checkout'),
+    '../services/subscriptions': require('../../services/subscriptions'),
     '@supabase/supabase-js': {
       createClient: () => ({ auth, storage: { from(bucket) {
         assert.equal(bucket, 'animals');
@@ -117,7 +121,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
       async get(args) {
         record('payment', args);
         if (options.paymentError) throw options.paymentError;
-        return options.payment || { status: 'approved', external_reference: '7_2' };
+        return options.payment || { id: 'payment-test', date_approved: new Date().toISOString(), status: 'approved', external_reference: '7_2' };
       } }
     }
   };

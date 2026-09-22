@@ -41,9 +41,9 @@ for (const status of ['pending', 'rejected', 'cancelled']) {
 test('webhook aprovado usa referência consultada no provedor, não o usuário do payload', async (t) => {
   const f = await routeFixture(t);
   assert.equal((await f.request('/webhook', { body: { type: 'payment', data: { id: 'test' }, userId: 99, planTier: 3 } })).status, 200);
-  const writes = f.calls.filter(c => c.kind === 'run');
-  assert.equal(writes.length, 1);
-  assert.deepEqual(writes[0].params, ['2', '7']);
+  assert.equal(f.state.events.length, 1);
+  assert.equal(f.state.events[0].tier, 2);
+  assert.equal(f.state.events[0].user_id, '7');
 });
 
 test('webhook aceita formato query e ignora eventos de outro tipo', async (t) => {

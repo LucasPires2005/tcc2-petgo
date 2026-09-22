@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { issueMobileToken, getMobileAccess } = require('../services/mobileSession');
 const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/requireMobileUser');
 const { normalizeCheckout, referenceIdentity, publicBaseUrl } = require('../services/checkout');
+const { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, operationKey, activateSubscription, activatePayment } = require('../services/subscriptions');
 
 const publicPaths = new Set(['/login', '/register', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
 const requireMobileUser = createRequireMobileUser({ db });
@@ -87,11 +88,10 @@ function validCoins(value) {
 }
 
 // A condição e a alteração são executadas juntas no banco, sem saldo calculado no cliente.
-async function debitCoins(userId, amount, upgrade = false) {
+async function debitCoins(userId, amount) {
   return getOne(
-    `UPDATE users SET coins = coins - ?${upgrade ? ', is_premium = 1' : ''}
+    `UPDATE users SET coins = coins - ?
      WHERE id = ? AND coins >= ? AND coins <= ?
-     ${upgrade ? 'AND COALESCE(is_premium, 0) <> 1' : ''}
      RETURNING id, name, email, coins, is_premium, plan_tier`,
     [amount, userId, amount, MAX_COINS]
   );
@@ -102,10 +102,10 @@ router.post('/add-coins', async (req, res) => {
   if (!validCoins(baseAmount)) return res.status(400).json({ error: 'Informe uma quantidade inteira e positiva de PetCoins.' });
   try {
     const user = await getOne(
-      `UPDATE users SET coins = COALESCE(coins, 0) + ? * CASE plan_tier WHEN 3 THEN 3 WHEN 2 THEN 2 ELSE 1 END
+      `UPDATE users SET coins = COALESCE(coins, 0) + ? * CASE (${effectiveTierSql()}) WHEN 3 THEN 3 WHEN 2 THEN 2 ELSE 1 END
        WHERE id = ? AND COALESCE(coins, 0) >= 0
-       AND COALESCE(coins, 0) <= ? - ?::bigint * CASE plan_tier WHEN 3 THEN 3 WHEN 2 THEN 2 ELSE 1 END
-       RETURNING coins, plan_tier`, [baseAmount, userId, MAX_COINS, baseAmount]);
+       AND COALESCE(coins, 0) <= ? - ?::bigint * CASE (${effectiveTierSql()}) WHEN 3 THEN 3 WHEN 2 THEN 2 ELSE 1 END
+       RETURNING coins, (${effectiveTierSql()}) AS plan_tier`, [baseAmount, userId, MAX_COINS, baseAmount]);
     if (!user) return res.status(400).json({ error: 'Não foi possível creditar: conta ou saldo inválido, ou limite excedido.' });
     const multiplier = getMultiplier(user.plan_tier);
     const earnedCoins = baseAmount * multiplier;
@@ -131,36 +131,32 @@ router.post('/buy-product', async (req, res) => {
 
 router.post('/upgrade-pro', async (req, res) => {
   try {
-    const user = await debitCoins(req.body.userId, 50, true);
-    if (!user) return res.status(400).json({ error: 'Saldo insuficiente ou conta já PRO.' });
-    res.json({ success: true, user });
+    const { userId, operationId } = req.body;
+    const result = await activateSubscription(db, { userId, kind: 'premium', tier: 1,
+      eventKey: operationKey('coins', userId, operationId), approvedAt: new Date().toISOString(),
+      coinCost: 50, legacy: operationId === undefined });
+    res.json({ success: true, ...result });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao ativar PRO.' });
+    res.status(error.code === 'SUBSCRIPTION_INVALID' ? error.status : 500)
+      .json({ error: error.code === 'SUBSCRIPTION_INVALID' ? error.message : 'Erro ao ativar PRO.' });
   }
 });
 
-router.post('/subscribe-plan', (req, res) => {
-  const { userId, planTier } = req.body;
-
-  db.get('SELECT id FROM users WHERE id = ?', [userId], (err, user) => {
-    if (err || !user) return res.status(404).json({ error: 'Usuário não encontrado' });
-
-    db.run('UPDATE users SET plan_tier = ? WHERE id = ?', [planTier, userId], (err) => {
-      if (err) return res.status(500).json({ error: 'Erro ao ativar assinatura' });
-
-      db.get(
-        'SELECT id, name, email, coins, is_premium, plan_tier FROM users WHERE id = ?',
-        [userId],
-        (err, updatedUser) => {
-          res.json({
-            success: true,
-            message: 'Plano ativado com sucesso! 🎉',
-            user: updatedUser
-          });
-        }
-      );
-    });
-  });
+// Pix continua uma simulação acadêmica explícita; não confirma transferência real.
+router.post('/subscribe-plan', async (req, res) => {
+  const { userId, planTier, operationId } = req.body;
+  if (!Number.isInteger(planTier) || ![1, 2, 3].includes(planTier)) {
+    return res.status(400).json({ error: 'Plano inválido.' });
+  }
+  try {
+    const result = await activateSubscription(db, { userId, kind: 'plan', tier: planTier,
+      eventKey: operationKey('pix-demo', userId, operationId), approvedAt: new Date().toISOString(),
+      legacy: operationId === undefined });
+    res.json({ success: true, message: 'Plano ativado com sucesso! 🎉', ...result });
+  } catch (error) {
+    res.status(error.code === 'SUBSCRIPTION_INVALID' ? error.status : 500)
+      .json({ error: error.code === 'SUBSCRIPTION_INVALID' ? error.message : 'Erro ao ativar assinatura.' });
+  }
 });
 
 for (const [path, field] of [['/donate', 'amount'], ['/redeem', 'cost']]) {
@@ -193,8 +189,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const user = await getOne(
-      `SELECT id, name, email, password, coins, is_premium, plan_tier,
-              email_confirmed, auth_user_id
+      `SELECT ${PROFILE_COLUMNS}, password, auth_user_id
        FROM users
        WHERE LOWER(TRIM(email)) = ?`,
       [email]
@@ -221,8 +216,9 @@ router.post('/login', async (req, res) => {
         name: user.name,
         email: user.email,
         coins: user.coins,
-        is_premium: user.is_premium,
-        plan_tier: user.plan_tier,
+        ...profileWithValidity({ is_premium: user.is_premium, plan_tier: user.plan_tier,
+          subscription_start_date: user.subscription_start_date, subscription_end_date: user.subscription_end_date,
+          premium_start_date: user.premium_start_date, premium_end_date: user.premium_end_date }),
         email_confirmed: user.email_confirmed
       });
     }
@@ -254,8 +250,9 @@ router.post('/login', async (req, res) => {
       name: user.name,
       email: user.email,
       coins: user.coins,
-      is_premium: user.is_premium,
-      plan_tier: user.plan_tier,
+      ...profileWithValidity({ is_premium: user.is_premium, plan_tier: user.plan_tier,
+        subscription_start_date: user.subscription_start_date, subscription_end_date: user.subscription_end_date,
+        premium_start_date: user.premium_start_date, premium_end_date: user.premium_end_date }),
       email_confirmed: true
     });
   } catch (error) {
@@ -266,10 +263,11 @@ router.post('/login', async (req, res) => {
 
 router.get('/update-status/:id', (req, res) => {
   db.get(
-    'SELECT id, name, email, coins, is_premium, plan_tier, email_confirmed FROM users WHERE id = ?',
+    `SELECT ${PROFILE_COLUMNS} FROM users WHERE id = ?`,
     [req.params.id],
     (err, user) => {
-      if (user) res.json(user);
+      if (err) return res.status(503).json({ error: 'Não foi possível consultar o perfil.' });
+      if (user) res.json(profileWithValidity(user));
       else res.status(404).json({ error: 'Não encontrado' });
     }
   );
@@ -313,13 +311,13 @@ router.put('/update', async (req, res) => {
     );
 
     const updatedUser = await getOne(
-      `SELECT id, name, email, coins, is_premium, plan_tier, email_confirmed
+      `SELECT ${PROFILE_COLUMNS}
        FROM users
        WHERE id = ?`,
       [id]
     );
 
-    res.json(updatedUser);
+    res.json(profileWithValidity(updatedUser));
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error);
     res.status(400).json({
@@ -764,7 +762,7 @@ router.get('/checkout-status', async (req, res) => {
     const payment = matching.find(item => item.status === 'approved') || matching[0];
     const status = payment?.status || 'pending';
     if (status === 'approved' && identity.type === 'plan') {
-      await runQuery('UPDATE users SET plan_tier = ? WHERE id = ?', [identity.planTier, identity.userId]);
+      await activatePayment(db, payment);
     }
     res.json({ preferenceId, status, type: meta.type, title: meta.title,
       deliveryType: meta.delivery_type, deliveryInfo: meta.delivery_info,
@@ -784,27 +782,10 @@ router.post('/webhook', async (req, res) => {
       const payment = new Payment(client);
       const paymentData = await payment.get({ id: paymentId });
 
-      if (paymentData.status === 'approved') {
-        const identity = referenceIdentity(paymentData.external_reference);
-
-        if (identity?.type === 'plan') {
-          const { userId, planTier } = identity;
-
-          db.run(
-            'UPDATE users SET plan_tier = ? WHERE id = ?',
-            [planTier, userId],
-            (err) => {
-              if (!err) {
-                console.log(
-                  `\n=======================================\n🚀 WEBHOOK SUCESSO: Usuário ID ${userId} subiu para o Plano ${planTier}!\n=======================================\n`
-                );
-              }
-            }
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Erro no Webhook:', err);
+      await activatePayment(db, paymentData);
+    } catch (error) {
+      console.error('Erro no Webhook:', { code: error.code || 'SUBSCRIPTION_UNAVAILABLE' });
+      return res.sendStatus(503); // O provedor pode tentar novamente; não confirmar uma gravação que falhou.
     }
   }
 
