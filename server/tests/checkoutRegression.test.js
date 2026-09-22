@@ -68,5 +68,7 @@ test('compra com Coins debita conta do token e preserva saldo quando insuficient
   assert.equal((await buy(30)).body.newBalance, 70);
   assert.equal((await buy(90)).status, 400);
   assert.equal(f.state.coins, 70);
-  assert.deepEqual(f.calls.find(c => c.kind === 'run').params, [70, 7]);
+  const debit = f.calls.find(c => c.kind === 'get' && c.sql.includes('UPDATE users SET coins'));
+  assert.deepEqual(debit.params, [30, 7, 30, 2147483647]);
+  assert.match(debit.sql, /coins >= \?/);
 });

@@ -23,9 +23,4 @@ test('GAP-RESCUE: repetir o resgate não concede uma segunda recompensa', async 
   assert.equal(f.state.coins, coinsAfterFirst);
 });
 
-test('GAP-COINS: custo negativo não pode aumentar o saldo', async (t) => {
-  const f = await routeFixture(t);
-  const r = await f.request('/buy-product', { token: f.token, body: { cost: -50, productName: 'Teste' } });
-  assert.equal(r.status, 400);
-  assert.equal(f.state.coins, 100);
-});
+// GAP-COINS agora está em ../coinsRegression.test.js (suíte principal).

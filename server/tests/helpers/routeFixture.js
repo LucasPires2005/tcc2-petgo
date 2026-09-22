@@ -21,6 +21,21 @@ async function routeFixture(t, route = 'auth', options = {}) {
   const db = {
     get(sql, params, cb) {
       record('get', { sql, params });
+      if (sql.trim().startsWith('UPDATE users SET coins')) {
+        if (options.writeError) return cb(options.writeError);
+        if (options.missingUser) return cb(null, null);
+        const credit = sql.includes('CASE plan_tier');
+        const balance = state.coins ?? (credit ? 0 : NaN);
+        const multiplier = user.plan_tier === 3 ? 3 : user.plan_tier === 2 ? 2 : 1;
+        const upgrade = sql.includes('is_premium = 1');
+        const delta = credit ? params[0] * multiplier : -params[0];
+        if (!Number.isInteger(balance) || balance < 0 || balance > 2147483647
+          || balance + delta < 0 || balance + delta > 2147483647
+          || (upgrade && user.is_premium === 1)) return cb(null, null);
+        state.coins = balance + delta;
+        if (upgrade) user.is_premium = 1;
+        return cb(null, { ...user, coins: state.coins });
+      }
       if (sql.includes('user_access')) {
         return cb(options.accessError, options.missingUser ? null : {
           id: user.id, banned: Boolean(options.banned), version: 0
