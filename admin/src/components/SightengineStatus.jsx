@@ -29,7 +29,7 @@ export default function SightengineStatus() {
     </p>
     {!loading && configured === false && <p className="mt-2 text-sm text-slate-600">Falta configurar as credenciais de moderação no backend.</p>}
     {error && <p role="alert" className="mt-2 text-sm text-red-700">Não foi possível verificar a configuração. {error}</p>}
-    <p className="mt-3 text-sm text-slate-500">Ativo indica apenas que as duas credenciais estão preenchidas. Esta consulta não valida as chaves, a disponibilidade do serviço, a quota ou a precisão das análises.</p>
+    {configured === true && <p className="mt-3 text-sm text-slate-500">Serviço de moderação automática de imagens configurado.</p>}
     <button disabled={loading} onClick={() => setAttempt((value) => value + 1)} className="mt-4 rounded-lg border px-4 py-2 text-sm disabled:opacity-50">Verificar novamente</button>
   </section>;
 }

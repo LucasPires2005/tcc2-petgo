@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { fetchAdminRecords } from '../lib/api';
+import { formatDateTime, localTimeZone } from '../lib/dateTime.mjs';
 
 const actions = { user_ban: 'Banimento', user_unban: 'Desbanimento', animal_delete: 'Exclusão de animal' };
 const button = 'rounded-lg border bg-white px-4 py-2 disabled:opacity-50';
-const date = (value) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString('pt-BR') : 'Não informado';
 
 export default function RecordsPage({ kind }) {
   const { accessToken, invalidateAccess } = useAdminAuth();
   const audit = kind === 'audit';
+  const timeZone = localTimeZone();
   const [filters, setFilters] = useState({ page: 1 });
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState('');
@@ -34,7 +35,8 @@ export default function RecordsPage({ kind }) {
   }, [kind, accessToken, filters, attempt, invalidateAccess]);
   return <section aria-busy={loading}>
     <h1 className="text-3xl font-semibold">{audit ? 'Histórico administrativo' : 'Arquivos de animais'}</h1>
-    <p className="mt-3 text-slate-600">{audit ? 'Ações concluídas após a implantação da auditoria. Horários no fuso deste dispositivo.' : 'Inventário somente leitura do bucket animals. Nenhum arquivo será apagado por esta página.'}</p>
+    <p className="mt-3 text-slate-600">{audit ? 'Histórico de ações administrativas do PetGo.' : 'Inventário somente leitura do bucket animals. Nenhum arquivo será apagado por esta página.'}</p>
+    <p className="mt-2 text-sm text-slate-500">Horário local · {timeZone}</p>
     <form className="mt-6 flex flex-wrap items-end gap-3" onSubmit={(event) => {
       event.preventDefault(); setFilters({ page: 1, ...(audit ? { action: selection } : { q: search.trim(), link: selection }) });
     }}>
@@ -54,13 +56,13 @@ export default function RecordsPage({ kind }) {
       <div className="mt-4 space-y-4">{data.rows.map((row) => <article key={row.id} className="min-w-0 rounded-xl border bg-white p-5">
         {audit ? <>
           <h2 className="font-semibold">{actions[row.action] || row.action} · alvo #{row.target_id}</h2>
-          <p className="mt-2 text-sm">{date(row.created_at)}</p>
+          <p className="mt-2 text-sm">{formatDateTime(row.created_at, timeZone)}</p>
           <p className="mt-2 break-all text-sm">Administrador (UUID): {row.actor_id}</p>
           <p className="mt-3 whitespace-pre-wrap break-words">Motivo: {row.reason}</p>
           {row.details?.name && <p className="mt-2 break-words">Animal: {row.details.name}</p>}
         </> : <>
           <h2 className="break-all font-semibold">{row.name}</h2>
-          <p className="mt-2 text-sm">{date(row.created_at)} · {row.size_bytes == null ? 'Tamanho não informado' : `${Number(row.size_bytes).toLocaleString('pt-BR')} bytes`}</p>
+          <p className="mt-2 text-sm">{formatDateTime(row.created_at, timeZone)} · {row.size_bytes == null ? 'Tamanho não informado' : `${Number(row.size_bytes).toLocaleString('pt-BR')} bytes`}</p>
           <p className="mt-2 text-sm">{row.animal_ids?.length ? `Animais vinculados: ${row.animal_ids.join(', ')}` : 'Sem vínculo direto identificado'}</p>
           {typeof row.url === 'string' && row.url.startsWith('https://') && <a className="mt-3 inline-block text-brand-700 underline" href={row.url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Abrir arquivo</a>}
         </>}
