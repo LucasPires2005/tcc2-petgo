@@ -136,64 +136,49 @@ router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
   });
 });
 
-// ROTA DE RESGATE CORRIGIDA (APLICA MULTIPLICADOR DE MOEDAS DO PLAN_TIER DO USUÁRIO)
+// Status do animal e recompensa são confirmados na mesma conexão/transação.
 router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, async (req, res) => {
   const { id } = req.params;
-  const { rescuer_name, rescuer_contact, userId } = req.body;
-
-  if (!(await validateUploadedImage(req.file, res))) return;
-  
-  let rescueImageUrl = null;
-  if (req.file) {
-    try {
-      rescueImageUrl = await uploadToSupabase(req.file);
-    } catch (err) {
-      return res.status(500).json({ error: "Erro ao salvar imagem de resgate no Supabase Storage: " + err.message });
-    }
+  const { rescuer_name, rescuer_contact } = req.body;
+  if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) {
+    return res.status(400).json({ error: 'Identificador de animal inválido.' });
   }
-
-  const parsedUserId = userId ? parseInt(userId, 10) : null;
-
-  db.run(
-    `UPDATE animals SET status = 1, rescuer_name = ?, rescuer_contact = ?, rescue_image_url = ?, "userId" = ? WHERE id = ?`, 
-    [rescuer_name, rescuer_contact, rescueImageUrl, parsedUserId, id], 
-    (err) => {
-      if (err) {
-        console.error("Erro no PATCH rescue:", err.message);
-        return res.status(500).json({ error: err.message });
+  if (!(await validateUploadedImage(req.file, res))) return;
+  try {
+    const result = await db.transaction(async tx => {
+      const animal = (await tx.query(
+        'SELECT id, status FROM public.animals WHERE id = $1 FOR UPDATE', [id]
+      )).rows[0];
+      if (!animal) return { status: 404, body: { error: 'Animal não encontrado.' } };
+      if (animal.status !== null && Number(animal.status) !== 0) {
+        return { status: 409, body: { error: 'Este animal já foi resgatado ou não está disponível.', code: 'ANIMAL_ALREADY_RESCUED' } };
       }
-      
-      if (parsedUserId) {
-        // Busca o plan_tier do usuário para calcular o multiplicador (1x, 2x ou 3x)
-        db.get(`SELECT CASE WHEN (subscription_start_date IS NULL AND subscription_end_date IS NULL)
-          OR subscription_end_date > statement_timestamp() THEN plan_tier ELSE 0 END AS plan_tier
-          FROM users WHERE id = ?`, [parsedUserId], (errUser, userRow) => {
-          let multiplier = 1;
-          if (!errUser && userRow && userRow.plan_tier) {
-            const tier = parseInt(userRow.plan_tier, 10);
-            if (tier === 2) multiplier = 2;
-            if (tier === 3) multiplier = 3;
-          }
-          const baseCoins = 50;
-          const earnedCoins = baseCoins * multiplier;
-
-          db.run(`UPDATE users SET coins = COALESCE(coins, 0) + ? WHERE id = ?`, [earnedCoins, parsedUserId], (errCoins) => {
-            if (errCoins) {
-              console.error("Erro ao creditar moedas do resgate:", errCoins.message);
-            }
-            return res.json({ 
-              message: "Resgate confirmado com sucesso!", 
-              rescueImageUrl, 
-              earnedCoins, 
-              multiplier 
-            });
-          });
-        });
-      } else {
-        res.json({ message: "Resgate confirmado com sucesso!", rescueImageUrl, earnedCoins: 0, multiplier: 1 });
-      }
-    }
-  );
+      const userId = req.mobileUser.id;
+      const user = (await tx.query(`SELECT coins, CASE WHEN
+        (subscription_start_date IS NULL AND subscription_end_date IS NULL)
+        OR subscription_end_date > clock_timestamp() THEN plan_tier ELSE 0 END AS plan_tier
+        FROM public.users WHERE id = $1 FOR UPDATE`, [userId])).rows[0];
+      if (!user) return { status: 404, body: { error: 'Usuário não encontrado.' } };
+      const multiplier = Number(user.plan_tier) === 3 ? 3 : Number(user.plan_tier) === 2 ? 2 : 1;
+      const earnedCoins = 50 * multiplier;
+      // Upload só após obter o lock e verificar disponibilidade. Storage não faz parte do SQL:
+      // falha posterior pode deixar arquivo órfão, mas nunca resgate/recompensa parcialmente gravados.
+      const rescueImageUrl = req.file ? await uploadToSupabase(req.file) : null;
+      await tx.query(`UPDATE public.animals SET status = 1, rescuer_name = $1,
+        rescuer_contact = $2, rescue_image_url = $3, "userId" = $4 WHERE id = $5`,
+      [rescuer_name, rescuer_contact, rescueImageUrl, userId, id]);
+      const credited = (await tx.query(`UPDATE public.users SET coins = COALESCE(coins, 0) + $1
+        WHERE id = $2 AND COALESCE(coins, 0) >= 0
+        AND COALESCE(coins, 0) <= 2147483647 - $1 RETURNING coins`, [earnedCoins, userId])).rows[0];
+      if (!credited) throw new Error('RESCUE_BALANCE_INVALID');
+      return { status: 200, body: { message: 'Resgate confirmado com sucesso!',
+        rescueImageUrl, earnedCoins, multiplier } };
+    });
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('Erro na transação de resgate:', { code: error.code || 'RESCUE_FAILED' });
+    res.status(500).json({ error: 'Não foi possível confirmar o resgate e sua recompensa. Atualize a lista e tente novamente.' });
+  }
 });
 
 // BUSCA POR USUÁRIO

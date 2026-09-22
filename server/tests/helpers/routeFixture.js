@@ -19,7 +19,9 @@ async function routeFixture(t, route = 'auth', options = {}) {
   const state = { coins: user.coins, rescued: false };
   const record = (kind, details = {}) => calls.push({ kind, ...details });
   const db = {
-    transaction: require('./subscriptionTransaction').subscriptionTransaction({ user, state, options, record }),
+    transaction: route === 'animals'
+      ? require('./rescueTransaction').rescueTransaction({ user, state, options, record })
+      : require('./subscriptionTransaction').subscriptionTransaction({ user, state, options, record }),
     get(sql, params, cb) {
       record('get', { sql, params });
       if (sql.trim().startsWith('UPDATE users SET coins')) {

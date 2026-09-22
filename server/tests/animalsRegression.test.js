@@ -58,7 +58,7 @@ test('resgate multipart credita o resgatador autenticado conforme plano', async 
     const r = await f.request('/42/rescue', { method: 'PATCH', token: f.token, form: animalForm('rescue_image') });
     assert.equal(r.status, 200);
     assert.equal(r.body.earnedCoins, expected);
-    const writes = f.calls.filter(c => c.kind === 'run');
+    const writes = f.calls.filter(c => c.kind === 'tx' && c.sql.startsWith('UPDATE'));
     assert.equal(writes[0].params[3], 7);
     assert.equal(writes[0].params[4], '42');
     assert.deepEqual(writes[1].params, [expected, 7]);

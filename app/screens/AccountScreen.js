@@ -34,9 +34,9 @@ export default function AccountScreen({ navigation }) {
     is_premium: benefits.premium.active ? 1 : 0 };
   const [buyingPro, setBuyingPro] = useState(false);
   const confirmPro = () => Alert.alert(user?.is_premium ? 'Renovar PRO' : 'Ativar PRO',
-    'Usar 50 PetCoins para 30 dias de PRO? Se o PRO ainda estiver vigente, os 30 dias serão somados ao vencimento. Uma nova compra reativa um benefício cancelado.', [
-      { text: 'Voltar', style: 'cancel' },
-      { text: 'Confirmar — 50 Coins', onPress: async () => {
+    'O PRO destaca seu selo de perfil por 30 dias. Deseja ativar por 50 PetCoins?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Confirmar', onPress: async () => {
         setBuyingPro(true);
         try { await buyPremium(); } finally { setBuyingPro(false); }
       } }

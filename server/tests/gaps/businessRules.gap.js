@@ -1,5 +1,5 @@
-// Especificações executáveis ainda NÃO atendidas. Rodar somente com npm run test:gaps.
-// Falham de verdade (sem skip/todo): devem ir para a suíte principal após cada correção.
+// Histórico de lacunas: GAP-RESCUE resolvido e também coberto na suíte principal.
+// Mantido aqui para permitir verificar o comando npm run test:gaps, sem skip/todo.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { routeFixture } = require('../helpers/routeFixture');

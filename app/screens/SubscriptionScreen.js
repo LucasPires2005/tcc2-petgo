@@ -61,8 +61,8 @@ export default function SubscriptionScreen({ navigation }) {
 
   const handleSubscribe = (plan) => {
     Alert.alert(
-      `Assinar ${plan.name}`,
-      `Compra avulsa em Sandbox: ${plan.price} por 30 dias. Mesmo plano vigente: soma 30 dias; troca ou vencido: inicia novo prazo. Uma nova compra reativa um benefício cancelado. Continuar?`,
+      `${user?.plan_tier === plan.tier ? 'Renovar' : 'Assinar'} ${plan.name}`,
+      `Você está prestes a ${user?.plan_tier === plan.tier ? 'renovar' : 'assinar'} o ${plan.name} por ${plan.price}. São mais 30 dias de benefícios exclusivos e apoio à causa animal. Deseja prosseguir para o pagamento?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
