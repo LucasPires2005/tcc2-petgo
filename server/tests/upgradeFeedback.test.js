@@ -14,7 +14,8 @@ function fixture(response, error) {
   const profiles = [];
   const run = vm.runInNewContext(`(async () => { ${source.slice(start, end)}; return buyPremium(); })`, {
     user: { id: 7, coins: 0 }, BASE_URL: 'https://api.example.test',
-    mobileFetch: async () => { if (error) throw error; return { ok: response.ok, json: async () => response.body }; },
+    profileVersion: { current: 0 },
+    performActivation: async () => { if (error) throw error; return { response: { ok: response.ok }, data: response.body }; },
     setUser: profile => profiles.push(profile),
     Alert: { alert: (...args) => alerts.push(args) }
   });

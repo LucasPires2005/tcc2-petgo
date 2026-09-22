@@ -1,5 +1,10 @@
 # Planos e PRO — backend de 30 dias
 
+Atualização: a interface e o cancelamento ao fim do período foram implementados
+no bloco seguinte. Consulte [CANCELAMENTO_ASSINATURAS.md](CANCELAMENTO_ASSINATURAS.md)
+para a migração 004 e o roteiro atual. Os registros abaixo descrevem a entrega
+original do backend (003).
+
 ## Estado desta entrega
 
 Backend implementado e testes automatizados executados: 127 testes passaram,

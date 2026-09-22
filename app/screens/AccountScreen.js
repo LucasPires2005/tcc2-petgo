@@ -18,6 +18,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import SubscriptionBenefits, { useBenefits } from '../components/SubscriptionBenefits';
 
 const ONGS_LIST = [
   'ONG Anjos de Quatro Patas - Unidade Centro',
@@ -27,7 +28,19 @@ const ONGS_LIST = [
 
 export default function AccountScreen({ navigation }) {
   const { startCheckout } = useCheckout();
-  const { user, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium, deleteAccount } = useContext(AuthContext);
+  const { user: profile, logout, updateAccount, changePassword, refreshUserData, redeemReward, buyPremium, deleteAccount } = useContext(AuthContext);
+  const benefits = useBenefits(profile);
+  const user = profile && { ...profile, plan_tier: benefits.plan.active ? profile.plan_tier : 0,
+    is_premium: benefits.premium.active ? 1 : 0 };
+  const [buyingPro, setBuyingPro] = useState(false);
+  const confirmPro = () => Alert.alert(user?.is_premium ? 'Renovar PRO' : 'Ativar PRO',
+    'Usar 50 PetCoins para 30 dias de PRO? Se o PRO ainda estiver vigente, os 30 dias serão somados ao vencimento. Uma nova compra reativa um benefício cancelado.', [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Confirmar — 50 Coins', onPress: async () => {
+        setBuyingPro(true);
+        try { await buyPremium(); } finally { setBuyingPro(false); }
+      } }
+    ]);
   
   // --- ESTADOS DOS MODAIS ORIGINAIS ---
   const [editModal, setEditModal] = useState(false);
@@ -307,6 +320,7 @@ export default function AccountScreen({ navigation }) {
           </View>
 
           {/* CARDS DE PLANO E ASSINATURA */}
+          <SubscriptionBenefits user={profile} />
           <TouchableOpacity 
             style={[styles.upgradeCard, { backgroundColor: '#8E44AD', marginTop: 15, marginBottom: 5 }]} 
             onPress={() => navigation.navigate('Subscription')}
@@ -319,15 +333,13 @@ export default function AccountScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={20} color="#FFF" />
           </TouchableOpacity>
 
-          {!user?.is_premium && user?.plan_tier === 0 ? (
-            <TouchableOpacity style={styles.upgradeCard} onPress={() => buyPremium()}>
+            <TouchableOpacity style={styles.upgradeCard} disabled={buyingPro} onPress={confirmPro} accessibilityRole="button">
               <Ionicons name="diamond" size={24} color="#FFF" />
               <View style={{flex: 1, marginLeft: 15}}>
-                <Text style={styles.upgradeTitle}>Seja um Membro PRO</Text>
-                <Text style={styles.upgradeSubtitle}>Destaque e selo exclusivo por 50 moedas</Text>
+                <Text style={styles.upgradeTitle}>{buyingPro ? 'Aguarde…' : user?.is_premium ? 'Renovar PRO' : benefits.premium.status === 'EXPIRED' ? 'Reativar PRO' : 'Seja um Membro PRO'}</Text>
+                <Text style={styles.upgradeSubtitle}>30 dias de PRO por 50 moedas</Text>
               </View>
             </TouchableOpacity>
-          ) : null}
 
           {/* MENU CONTA */}
           <View style={styles.menu}>

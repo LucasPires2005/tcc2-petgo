@@ -5,7 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { issueMobileToken, getMobileAccess } = require('../services/mobileSession');
 const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/requireMobileUser');
 const { normalizeCheckout, referenceIdentity, publicBaseUrl } = require('../services/checkout');
-const { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, operationKey, activateSubscription, activatePayment } = require('../services/subscriptions');
+const { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, operationKey, activateSubscription, activatePayment, cancelSubscription } = require('../services/subscriptions');
 
 const publicPaths = new Set(['/login', '/register', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
 const requireMobileUser = createRequireMobileUser({ db });
@@ -129,6 +129,16 @@ router.post('/buy-product', async (req, res) => {
   }
 });
 
+router.post('/cancel-subscription', async (req, res) => {
+  try {
+    const result = await cancelSubscription(db, req.mobileUser.id, req.body.kind);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(error.code === 'SUBSCRIPTION_INVALID' ? error.status : 503)
+      .json({ error: error.code === 'SUBSCRIPTION_INVALID' ? error.message : 'Não foi possível cancelar. Tente novamente.' });
+  }
+});
+
 router.post('/upgrade-pro', async (req, res) => {
   try {
     const { userId, operationId } = req.body;
@@ -218,7 +228,8 @@ router.post('/login', async (req, res) => {
         coins: user.coins,
         ...profileWithValidity({ is_premium: user.is_premium, plan_tier: user.plan_tier,
           subscription_start_date: user.subscription_start_date, subscription_end_date: user.subscription_end_date,
-          premium_start_date: user.premium_start_date, premium_end_date: user.premium_end_date }),
+          premium_start_date: user.premium_start_date, premium_end_date: user.premium_end_date,
+          subscription_cancelled_at: user.subscription_cancelled_at, premium_cancelled_at: user.premium_cancelled_at }),
         email_confirmed: user.email_confirmed
       });
     }
@@ -252,7 +263,8 @@ router.post('/login', async (req, res) => {
       coins: user.coins,
       ...profileWithValidity({ is_premium: user.is_premium, plan_tier: user.plan_tier,
         subscription_start_date: user.subscription_start_date, subscription_end_date: user.subscription_end_date,
-        premium_start_date: user.premium_start_date, premium_end_date: user.premium_end_date }),
+        premium_start_date: user.premium_start_date, premium_end_date: user.premium_end_date,
+        subscription_cancelled_at: user.subscription_cancelled_at, premium_cancelled_at: user.premium_cancelled_at }),
       email_confirmed: true
     });
   } catch (error) {

@@ -1,11 +1,16 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import SubscriptionBenefits, { useBenefits } from '../components/SubscriptionBenefits';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { useCheckout } from '../context/CheckoutContext';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
 export default function SubscriptionScreen({ navigation }) {
-  const { user } = useContext(AuthContext);
+  const { user: profile, refreshUserData } = useContext(AuthContext);
+  const benefits = useBenefits(profile);
+  const user = profile && { ...profile, plan_tier: benefits.plan.active ? profile.plan_tier : 0 };
+  useFocusEffect(useCallback(() => { refreshUserData(); }, []));
   const { startCheckout } = useCheckout();
   const [processing, setProcessing] = useState(false);
 
@@ -14,7 +19,7 @@ export default function SubscriptionScreen({ navigation }) {
       tier: 1,
       name: 'Plano Amigo',
       price: 'R$ 19,90',
-      period: '/mês',
+      period: '/30 dias',
       color: '#4A90E2',
       icon: 'paw',
       benefits: [
@@ -28,7 +33,7 @@ export default function SubscriptionScreen({ navigation }) {
       tier: 2,
       name: 'Plano Protetor',
       price: 'R$ 39,90',
-      period: '/mês',
+      period: '/30 dias',
       color: '#8E44AD',
       icon: 'shield-checkmark',
       benefits: [
@@ -42,7 +47,7 @@ export default function SubscriptionScreen({ navigation }) {
       tier: 3,
       name: 'Plano Guardião',
       price: 'R$ 79,90',
-      period: '/mês',
+      period: '/30 dias',
       color: '#F39C12',
       icon: 'diamond',
       benefits: [
@@ -57,7 +62,7 @@ export default function SubscriptionScreen({ navigation }) {
   const handleSubscribe = (plan) => {
     Alert.alert(
       `Assinar ${plan.name}`,
-      `Deseja ser redirecionado para o ambiente de pagamentos para finalizar a assinatura de ${plan.price}?`,
+      `Compra avulsa em Sandbox: ${plan.price} por 30 dias. Mesmo plano vigente: soma 30 dias; troca ou vencido: inicia novo prazo. Uma nova compra reativa um benefício cancelado. Continuar?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
@@ -101,6 +106,7 @@ export default function SubscriptionScreen({ navigation }) {
           </Text>
         </View>
 
+        <SubscriptionBenefits user={profile} />
         {plans.map((plan) => {
           const isCurrentPlan = user?.plan_tier === plan.tier;
 
@@ -133,13 +139,13 @@ export default function SubscriptionScreen({ navigation }) {
                 <TouchableOpacity 
                   style={[
                     styles.subscribeBtn, 
-                    { backgroundColor: isCurrentPlan ? '#CCC' : plan.color }
+                    { backgroundColor: plan.color, opacity: processing ? 0.5 : 1 }
                   ]}
-                  disabled={isCurrentPlan || processing}
+                  disabled={processing}
                   onPress={() => handleSubscribe(plan)}
                 >
                   <Text style={styles.subscribeBtnText}>
-                    {isCurrentPlan ? 'Plano Ativo' : `Assinar ${plan.name}`}
+                    {processing ? 'Aguarde…' : isCurrentPlan ? `Renovar ${plan.name}` : benefits.plan.status === 'EXPIRED' ? `Reativar com ${plan.name}` : `Assinar ${plan.name}`}
                   </Text>
                 </TouchableOpacity>
               </View>

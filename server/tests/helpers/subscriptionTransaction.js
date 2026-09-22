@@ -28,12 +28,19 @@ function subscriptionTransaction({ user, state, options = {}, record = () => {} 
         }
         if (sql.startsWith('UPDATE public.users SET')) {
           if (options.activationWriteError) throw options.activationWriteError;
+          if (sql.includes("_status = 'CANCELLED'")) {
+            const prefix = sql.includes('SET subscription_cancelled_at') ? 'subscription' : 'premium';
+            copy.user[`${prefix}_cancelled_at`] = params[0];
+            copy.user[`${prefix}_status`] = 'CANCELLED';
+            return { rows: [{ ...copy.user }] };
+          }
           const plan = sql.includes('SET plan_tier');
           const prefix = plan ? 'subscription' : 'premium';
           copy.user[plan ? 'plan_tier' : 'is_premium'] = params[0];
           copy.user[`${prefix}_start_date`] = params[1];
           copy.user[`${prefix}_end_date`] = params[2];
           copy.user[`${prefix}_status`] = params[3];
+          copy.user[`${prefix}_cancelled_at`] = params[6] ?? null;
           copy.user.coins -= params[4];
           return { rows: [{ ...copy.user }] };
         }

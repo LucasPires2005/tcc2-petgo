@@ -4,6 +4,13 @@ export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://tcc-202
 let token = null;
 let onInvalidSession = null;
 export function setMobileSession(accessToken) { token = accessToken || null; }
+// Protege operações que aguardam armazenamento local antes de enviar a requisição.
+export function captureSessionGuard() {
+  const expected = token;
+  return () => {
+    if (!expected || token !== expected) throw new Error('A sessão mudou durante a operação. Entre novamente.');
+  };
+}
 export function onMobileSessionInvalid(callback) {
   onInvalidSession = callback;
   return () => { if (onInvalidSession === callback) onInvalidSession = null; };

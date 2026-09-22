@@ -1,5 +1,6 @@
-import React, { createContext, useState, useEffect } from 'react';
-import { Alert } from 'react-native';
+import React, { createContext, useState, useEffect, useRef } from 'react';
+import { Alert, AppState } from 'react-native';
+import { performActivation } from '../services/subscriptionApi';
 import { mobileFetch, setMobileSession, onMobileSessionInvalid, API_BASE_URL } from '../services/mobileApi';
 
 export const AuthContext = createContext();
@@ -8,6 +9,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [animals, setAnimals] = useState([]);
   const BASE_URL = API_BASE_URL;
+  const profileVersion = useRef(0);
+  const refreshRef = useRef(null);
+  refreshRef.current = refreshUserData;
+  useEffect(() => {
+    if (!user?.id) return;
+    const timer = setInterval(() => { if (AppState.currentState === 'active') refreshRef.current(); }, 60000);
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') refreshRef.current(); });
+    return () => { clearInterval(timer); listener.remove(); };
+  }, [user?.id]);
   useEffect(() => onMobileSessionInvalid((message) => {
     setUser(null); setAnimals([]);
     Alert.alert('Acesso ao PetGo', message);
@@ -24,10 +34,11 @@ export function AuthProvider({ children }) {
 
   async function refreshUserData() {
     if (!user) return;
+    const version = ++profileVersion.current;
     try {
       const res = await mobileFetch(`${BASE_URL}/auth/update-status/${user.id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
       const data = await res.json();
-      if (res.ok) setUser(data);
+      if (res.ok && version === profileVersion.current) setUser(data);
     } catch (e) { console.log("Erro nas moedas"); }
   }
 
@@ -53,14 +64,12 @@ export function AuthProvider({ children }) {
   }
 
   async function buyPremium() {
+    if (!user) return false;
+    ++profileVersion.current;
     try {
-      const response = await mobileFetch(`${BASE_URL}/auth/upgrade-pro`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      const data = await response.json();
+      const { response, data } = await performActivation(user.id, 'upgrade-pro');
       if (response.ok) {
+        ++profileVersion.current;
         setUser(data.user);
         Alert.alert("Parabéns! 💎", "Você agora é um Membro PRO!");
         return true;
@@ -74,28 +83,49 @@ export function AuthProvider({ children }) {
       }
       return false;
     } catch (e) {
-      Alert.alert('Falha ao ativar o PRO', 'Não foi possível concluir a solicitação. Confira sua conexão e tente novamente.');
+      Alert.alert('Falha ao ativar o PRO', `${e.message || 'Não foi possível concluir a solicitação.'} Confira sua conexão e tente novamente.`);
       return false;
     }
   }
 
   async function subscribeToPlan(planTier) {
+    if (!user) return false;
+    ++profileVersion.current;
     try {
-      const response = await mobileFetch(`${BASE_URL}/auth/subscribe-plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, planTier }),
-      });
-      const data = await response.json();
+      const { response, data } = await performActivation(user.id, 'subscribe-plan', { planTier });
       if (response.ok) {
+        ++profileVersion.current;
         setUser(data.user);
         Alert.alert("Sucesso! 🎉", data.message);
         return true;
       }
+      if (!['SESSION_INVALID', 'ACCOUNT_BANNED'].includes(data.code)) Alert.alert('Erro', data.error || 'Falha ao processar assinatura.');
       return false;
     } catch (e) { 
-      Alert.alert("Erro", "Falha ao processar assinatura.");
+      Alert.alert("Erro", e.message || "Falha ao processar assinatura.");
       return false; 
+    }
+  }
+
+  async function cancelSubscription(kind) {
+    if (!user) return false;
+    ++profileVersion.current;
+    try {
+      const response = await mobileFetch(`${BASE_URL}/auth/cancel-subscription`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (!['SESSION_INVALID', 'ACCOUNT_BANNED'].includes(data.code)) Alert.alert('Não foi possível cancelar', data.error || 'Tente novamente.');
+        return false;
+      }
+      ++profileVersion.current;
+      setUser(data.user);
+      Alert.alert('Assinatura cancelada', 'Seu acesso continua até a data de vencimento exibida.');
+      return true;
+    } catch (error) {
+      Alert.alert('Falha na conexão', 'Atualize o perfil para conferir o cancelamento ou tente novamente.');
+      return false;
     }
   }
 
@@ -306,7 +336,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
-      buyPremium, donateCoins, subscribeToPlan, deleteAccount, awardCoins,
+      buyPremium, donateCoins, subscribeToPlan, cancelSubscription, deleteAccount, awardCoins,
       resendConfirmationEmail, requestPasswordReset, resetPasswordWithToken,
       logout: () => { setMobileSession(null); setUser(null); setAnimals([]); }
     }}>

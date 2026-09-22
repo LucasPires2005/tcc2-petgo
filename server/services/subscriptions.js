@@ -4,7 +4,8 @@ const { referenceIdentity } = require('./checkout');
 const DAY = 86400000;
 const PROFILE_COLUMNS = `id, name, email, coins, is_premium, plan_tier, email_confirmed,
   subscription_start_date, subscription_end_date, subscription_status,
-  premium_start_date, premium_end_date, premium_status`;
+  premium_start_date, premium_end_date, premium_status,
+  subscription_cancelled_at, premium_cancelled_at`;
 const effectiveTierSql = (alias = '') => {
   const p = alias ? `${alias}.` : '';
   return `CASE WHEN (${p}subscription_start_date IS NULL AND ${p}subscription_end_date IS NULL)
@@ -18,11 +19,13 @@ function periodState(enabled, start, end, now = Date.now()) {
 }
 function profileWithValidity(user, now = Date.now()) {
   if (!user) return user;
-  const planStatus = periodState(Number(user.plan_tier) > 0, user.subscription_start_date, user.subscription_end_date, now);
-  const premiumStatus = periodState(Number(user.is_premium) === 1, user.premium_start_date, user.premium_end_date, now);
+  let planStatus = periodState(Number(user.plan_tier) > 0, user.subscription_start_date, user.subscription_end_date, now);
+  let premiumStatus = periodState(Number(user.is_premium) === 1, user.premium_start_date, user.premium_end_date, now);
+  if (planStatus === 'ACTIVE' && user.subscription_cancelled_at) planStatus = 'CANCELLED';
+  if (premiumStatus === 'ACTIVE' && user.premium_cancelled_at) premiumStatus = 'CANCELLED';
   return { ...user,
-    plan_tier: ['ACTIVE', 'LEGACY'].includes(planStatus) ? Number(user.plan_tier) : 0,
-    is_premium: ['ACTIVE', 'LEGACY'].includes(premiumStatus) ? 1 : 0,
+    plan_tier: ['ACTIVE', 'LEGACY', 'CANCELLED'].includes(planStatus) ? Number(user.plan_tier) : 0,
+    is_premium: ['ACTIVE', 'LEGACY', 'CANCELLED'].includes(premiumStatus) ? 1 : 0,
     subscription_start_date: user.subscription_start_date ?? null,
     subscription_end_date: user.subscription_end_date ?? null, subscription_status: planStatus,
     premium_start_date: user.premium_start_date ?? null,
@@ -94,11 +97,35 @@ async function activateSubscription(db, { userId, kind, tier, eventKey, approved
     const baseline = (await tx.query(`SELECT initial_state FROM petgo_private.subscription_baselines WHERE user_id = $1 AND kind = $2`, [userId, kind])).rows[0];
     const events = (await tx.query(`SELECT * FROM petgo_private.subscription_events WHERE user_id = $1 AND kind = $2 ORDER BY approved_at, event_key`, [userId, kind])).rows;
     const next = projectPeriod(baseline.initial_state, events);
+    // Só uma NOVA aprovação posterior ao cancelamento reativa a assinatura.
+    // Webhooks antigos/duplicados não podem apagar a intenção de cancelar.
+    const cancelledAt = user[`${prefix}_cancelled_at`];
+    const remainsCancelled = cancelledAt && !events.some(e => new Date(e.approved_at) > new Date(cancelledAt));
     const field = kind === 'plan' ? 'plan_tier' : 'is_premium';
     const updated = (await tx.query(`UPDATE public.users SET ${field} = $1,
       ${prefix}_start_date = $2, ${prefix}_end_date = $3, ${prefix}_status = $4,
+      ${prefix}_cancelled_at = $7,
       coins = coins - $5 WHERE id = $6 RETURNING ${PROFILE_COLUMNS}`,
-    [next.tier, next.start, next.end, new Date(next.end).getTime() > Date.now() ? 'ACTIVE' : 'EXPIRED', coinCost, userId])).rows[0];
+    [next.tier, next.start, next.end, new Date(next.end).getTime() > Date.now()
+      ? (remainsCancelled ? 'CANCELLED' : 'ACTIVE') : 'EXPIRED', coinCost, userId,
+    remainsCancelled ? cancelledAt : null])).rows[0];
+    return { user: profileWithValidity(updated), duplicate: false };
+  });
+}
+
+async function cancelSubscription(db, userId, kind) {
+  if (!['plan', 'premium'].includes(kind)) throw businessError('Informe Plano ou PRO.');
+  const prefix = kind === 'plan' ? 'subscription' : 'premium';
+  return db.transaction(async tx => {
+    const user = (await tx.query(`SELECT ${PROFILE_COLUMNS} FROM public.users WHERE id = $1 FOR UPDATE`, [userId])).rows[0];
+    if (!user) throw businessError('Usuário não encontrado.', 404);
+    const status = profileWithValidity(user)[`${prefix}_status`];
+    if (status === 'LEGACY') throw businessError('Este benefício antigo não tem vencimento. Não será removido; a vigência começa na próxima compra.', 409);
+    if (status === 'CANCELLED') return { user: profileWithValidity(user), duplicate: true };
+    if (status !== 'ACTIVE') throw businessError('Não há assinatura vigente para cancelar.', 409);
+    const updated = (await tx.query(`UPDATE public.users SET ${prefix}_cancelled_at = $1,
+      ${prefix}_status = 'CANCELLED' WHERE id = $2 RETURNING ${PROFILE_COLUMNS}`,
+    [new Date().toISOString(), userId])).rows[0];
     return { user: profileWithValidity(updated), duplicate: false };
   });
 }
@@ -114,4 +141,4 @@ async function activatePayment(db, payment) {
 }
 
 module.exports = { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, periodState, projectPeriod,
-  operationKey, activateSubscription, activatePayment };
+  operationKey, activateSubscription, activatePayment, cancelSubscription };
