@@ -1,5 +1,7 @@
 # PetGo Admin — acesso administrativo
 
+Histórico e inventário de arquivos: antes de atualizar o backend, executar a migração 005 conforme [guia de implantação e testes](../docs/ADMIN_AUDITORIA_ARQUIVOS.md). As páginas `/historico` e `/arquivos` são exclusivas para ADM; o inventário não apaga arquivos.
+
 Aplicação web independente de `app/` e `server/`, com React, Vite, Tailwind 3, React Router e autenticação Supabase.
 
 ## Rodar a estrutura já criada

@@ -21,10 +21,15 @@ export default function UsersPage() {
   async function changeBan(user) {
     if (actionLock.current || user.is_admin) return;
     const banned = !user.banned;
+    const reason = window.prompt('Informe o motivo desta ação (3 a 500 caracteres):');
+    if (reason === null) return;
+    if (reason.trim().length < 3 || reason.trim().length > 500) {
+      setError('Informe um motivo com 3 a 500 caracteres.'); return;
+    }
     if (!window.confirm(`${banned ? 'Banir' : 'Desbanir'} ${user.name || user.email} (ID ${user.id})?\nAs sessões anteriores serão revogadas. Não exclui contas, animais ou moedas.`)) return;
     actionLock.current = true; setChanging(true); setError(''); setNotice('');
     try {
-      await setAdminUserBan(accessToken, user.id, banned);
+      await setAdminUserBan(accessToken, user.id, banned, reason.trim());
       setNotice(banned ? 'Conta banida. Novas chamadas protegidas serão bloqueadas.' : 'Conta liberada. O usuário deve entrar novamente.');
       setAttempt((value) => value + 1);
     } catch (err) {

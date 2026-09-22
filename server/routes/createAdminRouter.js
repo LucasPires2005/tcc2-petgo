@@ -1,30 +1,37 @@
 const express = require('express');
 const { createRequireAdmin } = require('../middleware/requireAdmin');
 const { effectiveTierSql } = require('../services/subscriptions');
+const { createAdminRecordsRouter, reasonFrom } = require('./adminRecords');
 
-function createAdminRouter({ auth, db }) {
+function createAdminRouter({ auth, db, supabaseUrl = process.env.SUPABASE_URL }) {
   const router = express.Router();
   router.use(createRequireAdmin({ auth, db }));
+  router.use(createAdminRecordsRouter({ db, supabaseUrl }));
 
   router.get('/me', (req, res) => res.json({ admin: req.admin }));
 
   router.put('/users/:id/ban', async (req, res) => {
     const { id } = req.params;
     const banned = req.body?.banned;
-    if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id)) || typeof banned !== 'boolean') {
+    const reason = reasonFrom(req.body);
+    if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id)) || typeof banned !== 'boolean' || reason === null) {
       return res.status(400).json({ error: 'Informe um usuário válido e a ação de banimento.' });
     }
     try {
       const row = await new Promise((resolve, reject) => db.get(
-        `INSERT INTO petgo_private.user_access (user_id, banned, version)
+        `WITH changed AS (INSERT INTO petgo_private.user_access (user_id, banned, version)
          SELECT u.id, ?, 1 FROM public.users u
          WHERE u.id = ? AND NOT EXISTS (
            SELECT 1 FROM petgo_private.admin_users a WHERE a.auth_user_id = u.auth_user_id
          )
          ON CONFLICT (user_id) DO UPDATE SET banned = EXCLUDED.banned,
            version = petgo_private.user_access.version + 1, updated_at = now()
-         RETURNING user_id, banned`,
-        [banned, id], (error, result) => error ? reject(error) : resolve(result)
+         RETURNING user_id, banned), logged AS (
+           INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
+           SELECT ?::uuid, CASE WHEN banned THEN 'user_ban' ELSE 'user_unban' END,
+             user_id::text, ?, jsonb_build_object('banned', banned) FROM changed RETURNING id
+         ) SELECT changed.* FROM changed CROSS JOIN logged`,
+        [banned, id, req.admin.id, reason], (error, result) => error ? reject(error) : resolve(result)
       ));
       if (!row) return res.status(409).json({ error: 'Usuário não encontrado ou conta administrativa protegida.' });
       console.info('Acesso mobile alterado:', { adminId: req.admin.id, userId: row.user_id, banned: row.banned });
@@ -69,14 +76,21 @@ function createAdminRouter({ auth, db }) {
   });
 
   router.delete('/animals/:id', async (req, res) => {
-    if (!/^[1-9]\d*$/.test(req.params.id) || !Number.isSafeInteger(Number(req.params.id))) {
+    const reason = reasonFrom(req.body);
+    if (!/^[1-9]\d*$/.test(req.params.id) || !Number.isSafeInteger(Number(req.params.id)) || reason === null) {
       return res.status(400).json({ error: 'ID de animal inválido.' });
     }
     try {
       // DELETE RETURNING evita uma consulta prévia sujeita a corrida.
       // Não remove arquivos do Storage nem modifica usuários ou moedas.
       const animal = await new Promise((resolve, reject) => db.get(
-        'DELETE FROM public.animals WHERE id = ? RETURNING id', [req.params.id],
+        `WITH deleted AS (
+          DELETE FROM public.animals WHERE id = ? RETURNING id, name, image_url, rescue_image_url
+        ), logged AS (
+          INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
+          SELECT ?::uuid, 'animal_delete', id::text, ?, jsonb_build_object('name', name,
+            'image_url', image_url, 'rescue_image_url', rescue_image_url) FROM deleted RETURNING id
+        ) SELECT deleted.id FROM deleted CROSS JOIN logged`, [req.params.id, req.admin.id, reason],
         (error, row) => error ? reject(error) : resolve(row)
       ));
       if (!animal) return res.status(404).json({ error: 'Animal não encontrado. Atualize a lista.' });

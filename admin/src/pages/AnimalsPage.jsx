@@ -47,11 +47,16 @@ export default function AnimalsPage() {
 
   async function remove(animal) {
     if (deleteLock.current) return;
+    const reason = window.prompt('Informe o motivo da exclusão (3 a 500 caracteres):');
+    if (reason === null) return;
+    if (reason.trim().length < 3 || reason.trim().length > 500) {
+      setError('Informe um motivo com 3 a 500 caracteres.'); return;
+    }
     if (!window.confirm(`Excluir definitivamente o registro "${animal.name || 'Sem nome'}" (ID ${animal.id})?\n\nEle deixará de aparecer nas próximas consultas do aplicativo. Não há desfazer no painel. As imagens permanecerão no Storage; contas e moedas não serão alteradas.`)) return;
     deleteLock.current = true;
     setDeleting(animal.id); setError(''); setNotice('');
     try {
-      await deleteAdminAnimal(accessToken, animal.id);
+      await deleteAdminAnimal(accessToken, animal.id, reason.trim());
       setNotice(`Registro ID ${animal.id} excluído. As imagens permanecem no Storage.`);
       setAttempt((value) => value + 1);
     } catch (err) {

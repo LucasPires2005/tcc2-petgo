@@ -67,7 +67,10 @@ test('animais: exclui somente o ID solicitado em uma consulta', async (t) => {
   const r = await f.request('/animals/42', 'DELETE');
   assert.equal(r.status, 200);
   assert.deepEqual(r.body, { deletedId: 42 });
-  assert.deepEqual(f.queries, [{ sql: 'DELETE FROM public.animals WHERE id = ? RETURNING id', params: ['42'] }]);
+  assert.equal(f.queries.length, 1);
+  assert.match(f.queries[0].sql, /DELETE FROM public.animals WHERE id = \?/);
+  assert.match(f.queries[0].sql, /INSERT INTO petgo_private.admin_audit_log/);
+  assert.deepEqual(f.queries[0].params, ['42', 'admin', 'Não informado (painel anterior)']);
 });
 
 test('animais: exclusão inexistente ou repetida retorna 404', async (t) => {

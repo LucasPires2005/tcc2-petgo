@@ -42,12 +42,21 @@ export async function fetchAdminAnimals(accessToken, filters, signal) {
   return data;
 }
 
-export function deleteAdminAnimal(accessToken, id) {
-  return adminGet(`/animals/${encodeURIComponent(id)}`, accessToken, undefined, 'DELETE');
+export function deleteAdminAnimal(accessToken, id, reason) {
+  return adminGet(`/animals/${encodeURIComponent(id)}`, accessToken, undefined, 'DELETE', { reason });
 }
 
-export function setAdminUserBan(accessToken, id, banned) {
-  return adminGet(`/users/${encodeURIComponent(id)}/ban`, accessToken, undefined, 'PUT', { banned });
+export function setAdminUserBan(accessToken, id, banned, reason) {
+  return adminGet(`/users/${encodeURIComponent(id)}/ban`, accessToken, undefined, 'PUT', { banned, reason });
+}
+
+export async function fetchAdminRecords(kind, accessToken, filters, signal) {
+  if (!['audit', 'files'].includes(kind)) throw new Error('Consulta inválida.');
+  const data = await adminGet(`/${kind}?${new URLSearchParams(filters)}`, accessToken, signal);
+  const rows = data[kind === 'audit' ? 'entries' : 'files'];
+  if (!Array.isArray(rows) || !Number.isSafeInteger(data.total) || data.total < 0
+      || !Number.isSafeInteger(data.totalPages) || data.totalPages < 0) throw new Error('Listagem inválida.');
+  return { ...data, rows };
 }
 
 export async function fetchAdminIdentity(accessToken) {

@@ -28,7 +28,7 @@ async function fixture(t) {
   const db = { get(sql, params, cb) {
     if (sql.startsWith('SELECT auth_user_id FROM petgo_private.admin_users')) return cb(null, state.admin ? {} : null);
     if (state.fail) return cb({ code: '08006' });
-    if (sql.startsWith('INSERT INTO petgo_private.user_access')) {
+    if (sql.includes('INSERT INTO petgo_private.user_access')) {
       if (state.protectedAdmin) return cb(null, null);
       state.banned = params[0]; state.version++;
       return cb(null, { user_id: 7, banned: state.banned });

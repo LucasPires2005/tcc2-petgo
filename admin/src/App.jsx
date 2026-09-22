@@ -5,8 +5,11 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
 import AnimalsPage from './pages/AnimalsPage';
+import RecordsPage from './pages/RecordsPage';
 
 const sections = [
+  { path: '/historico', title: 'Histórico' },
+  { path: '/arquivos', title: 'Arquivos' },
   { path: '/dashboard', title: 'Visão geral', description: 'Contagem de animais e usuários será conectada na próxima etapa.' },
   { path: '/usuarios', title: 'Usuários', description: 'Consulta de contas e planos, com ações administrativas protegidas.' },
   { path: '/animais', title: 'Animais', description: 'Revisão de fotos e registros para moderação.' }
@@ -75,6 +78,8 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="usuarios" element={<UsersPage />} />
         <Route path="animais" element={<AnimalsPage />} />
+        <Route path="historico" element={<RecordsPage key="audit" kind="audit" />} />
+        <Route path="arquivos" element={<RecordsPage key="files" kind="files" />} />
         <Route path="*" element={<Placeholder title="Página não encontrada" description="Use o menu para acessar uma das páginas do painel." />} />
       </Route>
       </Route>
