@@ -65,6 +65,14 @@ export async function fetchAdminIdentity(accessToken) {
   return data.admin;
 }
 
+export async function fetchSightengineStatus(accessToken, signal) {
+  const data = await adminGet('/sightengine-status', accessToken, signal);
+  if (typeof data.configured !== 'boolean' || data.checkType !== 'configuration') {
+    throw new Error('O servidor retornou um status de moderação inválido.');
+  }
+  return data;
+}
+
 export async function fetchAdminSummary(accessToken, signal) {
   const data = await adminGet('/summary', accessToken, signal);
   if (![data.users, data.animals].every((count) => Number.isSafeInteger(count) && count >= 0)

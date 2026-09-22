@@ -3,12 +3,19 @@ const { createRequireAdmin } = require('../middleware/requireAdmin');
 const { effectiveTierSql } = require('../services/subscriptions');
 const { createAdminRecordsRouter, reasonFrom } = require('./adminRecords');
 
-function createAdminRouter({ auth, db, supabaseUrl = process.env.SUPABASE_URL }) {
+function createAdminRouter({ auth, db, supabaseUrl = process.env.SUPABASE_URL, env = process.env }) {
   const router = express.Router();
   router.use(createRequireAdmin({ auth, db }));
   router.use(createAdminRecordsRouter({ db, supabaseUrl }));
 
   router.get('/me', (req, res) => res.json({ admin: req.admin }));
+
+  // Verifica apenas configuração, sem consumir quota nem expor credenciais.
+  router.get('/sightengine-status', (req, res) => {
+    const configured = ['SIGHTENGINE_API_USER', 'SIGHTENGINE_API_SECRET']
+      .every((key) => typeof env[key] === 'string' && env[key].trim().length > 0);
+    res.json({ configured, checkType: 'configuration' });
+  });
 
   router.put('/users/:id/ban', async (req, res) => {
     const { id } = req.params;

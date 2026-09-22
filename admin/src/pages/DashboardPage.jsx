@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { fetchAdminSummary } from '../lib/api';
 import UpdatedAt from '../components/UpdatedAt';
+import SightengineStatus from '../components/SightengineStatus';
 
 const numberFormat = new Intl.NumberFormat('pt-BR');
 
@@ -73,6 +74,7 @@ export default function DashboardPage() {
         ))}
       </dl>
       {summary && <UpdatedAt value={summary.updatedAt} />}
+      <SightengineStatus />
       {summary?.users === 0 && summary?.animals === 0 && (
         <p className="mt-4 rounded-xl bg-white p-4 text-slate-600">Ainda não há usuários ou animais cadastrados no aplicativo.</p>
       )}
