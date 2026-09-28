@@ -10,7 +10,13 @@ const CheckoutContext = createContext();
 export const useCheckout = () => useContext(CheckoutContext);
 
 // Salva apenas preferência/URL e identidade. Endereço fica no provedor, JWT nunca vai ao arquivo.
-const keyFor = userId => `petgo-checkout-${encodeURIComponent(API_BASE_URL)}-${userId}.json`;
+const keyFor = userId => {
+  const encodedApi = encodeURIComponent(API_BASE_URL);
+  // Android decodifica %2F na URI do arquivo. Escapar também '_' evita colisões.
+  // Preservar as chaves existentes no iOS/web para retomar pagamentos pendentes.
+  const fileApi = Platform.OS === 'android' ? encodedApi.replace(/_/g, '__').replace(/%/g, '_') : encodedApi;
+  return `petgo-checkout-${fileApi}-${userId}.json`;
+};
 async function readPending(key) {
   if (Platform.OS === 'web') return JSON.parse(localStorage.getItem(key) || 'null');
   const path = `${FileSystem.documentDirectory}${key}`;

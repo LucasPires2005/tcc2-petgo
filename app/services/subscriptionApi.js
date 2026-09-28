@@ -26,6 +26,10 @@ const runner = createOperationRunner({
   }
 });
 export function performActivation(userId, action, payload = {}) {
-  const key = `petgo-activation-${encodeURIComponent(API_BASE_URL)}-${userId}.json`;
+  const encodedApi = encodeURIComponent(API_BASE_URL);
+  // Mesmo escape do checkout: sem sequências percentuais na URI do Android.
+  // iOS/web mantêm as chaves e os operationIds já persistidos.
+  const fileApi = Platform.OS === 'android' ? encodedApi.replace(/_/g, '__').replace(/%/g, '_') : encodedApi;
+  const key = `petgo-activation-${fileApi}-${userId}.json`;
   return runner(key, action, payload, captureSessionGuard());
 }

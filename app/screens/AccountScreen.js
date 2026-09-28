@@ -1,6 +1,6 @@
 import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
-import React, { useContext, useState, useCallback, useEffect } from 'react';
+import React, { useContext, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -77,12 +77,12 @@ export default function AccountScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { refreshUserData(); }, []));
 
-  useEffect(() => {
-    if (user) {
-      setNewName(user.name || '');
-      setNewEmail(user.email || '');
-    }
-  }, [user, editModal]);
+  const openEditProfile = () => {
+    // Inicializar apenas ao abrir: atualizações do perfil não apagam o rascunho.
+    setNewName(profile?.name || '');
+    setNewEmail(profile?.email || '');
+    setEditModal(true);
+  };
 
   // Função utilitária para gerar código hash aleatório 
   const generateUniqueCode = () => {
@@ -274,7 +274,7 @@ export default function AccountScreen({ navigation }) {
           <View style={styles.profileHeader}>
             <View style={[styles.avatar, user?.is_premium === 1 || user?.plan_tier > 0 ? styles.avatarPremium : null]}>
               <Ionicons name="person" size={55} color="#FFF" />
-              <TouchableOpacity style={styles.editBadgeAvatar} onPress={() => setEditModal(true)}>
+              <TouchableOpacity style={styles.editBadgeAvatar} onPress={openEditProfile}>
                  <Ionicons name="pencil" size={14} color="#FFF" />
               </TouchableOpacity>
               {user?.is_premium === 1 || user?.plan_tier > 0 ? (
@@ -349,7 +349,7 @@ export default function AccountScreen({ navigation }) {
               <Ionicons name="chevron-forward" size={18} color="#CCC" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={() => setEditModal(true)}>
+            <TouchableOpacity style={styles.menuItem} onPress={openEditProfile}>
               <View style={[styles.iconArea, {backgroundColor: '#F0F0F0'}]}><Ionicons name="person-outline" size={22} color="#666" /></View>
               <Text style={styles.menuText}>Editar Perfil</Text>
               <Ionicons name="chevron-forward" size={18} color="#CCC" />
