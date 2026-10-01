@@ -48,6 +48,9 @@ async function routeFixture(t, route = 'auth', options = {}) {
       if (sql.trim() === 'SELECT id FROM users WHERE LOWER(TRIM(email)) = ?') {
         return cb(null, options.duplicate ? user : null);
       }
+      if (sql.includes('LOWER(TRIM(email)) = ? AND id <> ?')) {
+        return cb(null, options.duplicate ? { id: 99 } : null);
+      }
       if (sql.includes('AS salvos')) {
         if (options.profileError) return cb(options.profileError);
         const salvos = (options.animals || []).filter(animal => String(animal.userId) === String(params[0]) && animal.status === 1).length;
@@ -67,7 +70,8 @@ async function routeFixture(t, route = 'auth', options = {}) {
     }
   };
   const auth = {
-    async signInWithPassword(args) { record('login', args); return { error: options.loginError }; },
+    async signInWithPassword(args) { record('login', args); return { error: options.loginError, data: { user: { id: options.loginUserId || user.auth_user_id } } }; },
+    async updateUser(args, settings) { record('requestEmailChange', { ...args, ...settings }); return { error: options.emailError }; },
     async signUp(args) {
       record('signup', args);
       return { error: options.signupError, data: { user: { id: user.auth_user_id, identities: [{}] } } };
@@ -91,6 +95,10 @@ async function routeFixture(t, route = 'auth', options = {}) {
     '../middleware/requireMobileUser': middleware,
     '../services/checkout': require('../../services/checkout'),
     '../services/subscriptions': require('../../services/subscriptions'),
+    '../services/credentialValidation': require('../../services/credentialValidation'),
+    '../services/emailConfirmationSettings': { async requireEmailConfirmation() {
+      if (options.confirmationDisabled) throw new Error('EMAIL_CONFIRMATION_REQUIRED');
+    } },
     '@supabase/supabase-js': {
       createClient: () => ({ auth, storage: { from(bucket) {
         assert.equal(bucket, 'animals');

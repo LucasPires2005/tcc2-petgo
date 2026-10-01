@@ -277,18 +277,21 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function updateAccount(newName, newEmail) {
+  async function updateAccount(newName, newEmail, currentPassword) {
     const cleanEmail = newEmail.trim().toLowerCase();
     try {
       const res = await mobileFetch(`${BASE_URL}/auth/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, name: newName, email: cleanEmail }),
+        body: JSON.stringify({ id: user.id, name: newName, email: cleanEmail, ...(currentPassword ? { currentPassword } : {}) }),
       });
       const data = await res.json();
       if (res.ok) { 
-        setUser(data); 
-        Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
+        const { emailChangePending, ...updatedProfile } = data;
+        setUser(updatedProfile);
+        Alert.alert("Sucesso", emailChangePending
+          ? "Nome atualizado. Confirme a troca pelos links enviados aos seus e-mails. Até concluir, continue usando o endereço antigo."
+          : "Perfil atualizado com sucesso!");
         return true; 
       } else {
         Alert.alert("Erro ao Atualizar", data.error || "Falha ao atualizar perfil.");
@@ -307,8 +310,12 @@ export function AuthProvider({ children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, currentPassword, newPassword }),
       });
-      return res.ok;
-    } catch (e) { return false; }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Não foi possível alterar a senha. Tente novamente.');
+      }
+      return true;
+    } catch (e) { throw new Error(e.message || 'Falha na conexão com o servidor.'); }
   }
 
   async function deleteAccount() {

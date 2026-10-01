@@ -107,8 +107,8 @@ test('mapa: bloqueia seletor duplicado e ignora foto recebida após fechar formu
   assert.equal(failed.state.rescueImage, 'resgate');
 });
 
-test('senhas: oito campos usam controle independente sem alterar callbacks', () => {
-  for (const [file, count] of [['LoginScreen', 1], ['RegisterScreen', 2], ['ResetPasswordScreen', 2], ['AccountScreen', 3]]) {
+test('senhas: nove campos usam controle independente sem alterar callbacks', () => {
+  for (const [file, count] of [['LoginScreen', 1], ['RegisterScreen', 2], ['ResetPasswordScreen', 2], ['AccountScreen', 4]]) {
     const source = read(`app/screens/${file}.js`);
     assert.equal((source.match(/<PasswordInput\b/g) || []).length, count);
     assert.doesNotMatch(source, /secureTextEntry/);

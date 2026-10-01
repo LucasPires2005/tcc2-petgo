@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { normalizeEmail, isValidEmail, isValidNewPassword } = require('../services/credentialValidation');
+const { requireEmailConfirmation } = require('../services/emailConfirmationSettings');
 const { createClient } = require('@supabase/supabase-js');
 const { issueMobileToken, getMobileAccess } = require('../services/mobileSession');
 const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/requireMobileUser');
@@ -190,12 +192,14 @@ for (const [path, field] of [['/donate', 'amount'], ['/redeem', 'cost']]) {
 // ==========================================
 
 router.post('/login', async (req, res) => {
-  const email = req.body.email?.trim().toLowerCase();
+  const email = normalizeEmail(req.body.email);
   const { password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
   }
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Formato de e-mail inválido.' });
+  if (typeof password !== 'string') return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
 
   try {
     const user = await getOne(
@@ -290,11 +294,12 @@ router.get('/update-status/:id', (req, res) => {
 
 router.put('/update', async (req, res) => {
   const { id, name } = req.body;
-  const email = req.body.email?.trim().toLowerCase();
+  const email = normalizeEmail(req.body.email);
 
   if (!id || !name || !email) {
     return res.status(400).json({ error: 'Nome e e-mail são obrigatórios.' });
   }
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Formato de e-mail inválido.' });
 
   try {
     const currentUser = await getOne(
@@ -306,24 +311,41 @@ router.put('/update', async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    // Para contas novas, mantém o e-mail do Supabase sincronizado.
-    if (currentUser.auth_user_id && currentUser.email !== email) {
-      const { error: supabaseError } = await supabase.auth.admin.updateUserById(
-        currentUser.auth_user_id,
-        { email }
+    const emailChanged = normalizeEmail(currentUser.email) !== email;
+    if (emailChanged) {
+      const duplicate = await getOne(
+        'SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND id <> ?',
+        [email, id]
       );
+      if (duplicate) return res.status(400).json({ error: 'Este e-mail já está em uso em outra conta.' });
+    }
 
-      if (supabaseError) {
-        return res.status(400).json({
-          error: 'Não foi possível atualizar o e-mail no Supabase.'
-        });
+    if (emailChanged) {
+      if (!currentUser.auth_user_id) return res.status(400).json({ error: 'Esta conta não permite troca de e-mail com confirmação. O nome pode ser atualizado mantendo o e-mail atual.' });
+      if (typeof req.body.currentPassword !== 'string' || !req.body.currentPassword) {
+        return res.status(400).json({ error: 'Informe sua senha atual para alterar o e-mail.' });
+      }
+      try { await requireEmailConfirmation(SUPABASE_URL, SUPABASE_SECRET_KEY); }
+      catch {
+        return res.status(503).json({ error: 'A troca de e-mail está temporariamente indisponível. Não foi possível verificar a configuração de confirmação.' });
+      }
+      const emailClient = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: loginData, error: loginError } = await emailClient.auth.signInWithPassword({ email: normalizeEmail(currentUser.email), password: req.body.currentPassword });
+      if (loginError) {
+        logSupabaseAuthError('Erro ao validar senha para troca de e-mail:', loginError);
+        const invalid = loginError.code === 'invalid_credentials' || loginError.message === 'Invalid login credentials';
+        return res.status(invalid ? 401 : 503).json({ error: invalid ? 'A senha atual está incorreta.' : 'Não foi possível validar a senha atual. Tente novamente.' });
+      }
+      if (loginData?.user?.id !== currentUser.auth_user_id) return res.status(403).json({ error: 'Não foi possível verificar a identidade da conta.' });
+      const { error: emailError } = await emailClient.auth.updateUser({ email }, { emailRedirectTo: EMAIL_CONFIRMATION_REDIRECT_URL });
+      if (emailError) {
+        logSupabaseAuthError('Erro ao solicitar confirmação do novo e-mail:', emailError);
+        return res.status(400).json({ error: 'Não foi possível enviar a confirmação do novo e-mail. Tente novamente.' });
       }
     }
 
-    await runQuery(
-      'UPDATE users SET name = ?, email = ? WHERE id = ?',
-      [name, email, id]
-    );
+    // O e-mail só é sincronizado pelo trigger após confirmação no Supabase.
+    await runQuery('UPDATE users SET name = ? WHERE id = ?', [name, id]);
 
     const updatedUser = await getOne(
       `SELECT ${PROFILE_COLUMNS}
@@ -332,7 +354,7 @@ router.put('/update', async (req, res) => {
       [id]
     );
 
-    res.json(profileWithValidity(updatedUser));
+    res.json({ ...profileWithValidity(updatedUser), ...(emailChanged ? { emailChangePending: true } : {}) });
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error);
     res.status(400).json({
@@ -344,14 +366,8 @@ router.put('/update', async (req, res) => {
 router.put('/change-password', async (req, res) => {
   const { id, currentPassword, newPassword } = req.body;
 
-  if (!id || !currentPassword || !newPassword) {
+  if (!id || typeof currentPassword !== 'string' || !currentPassword || newPassword == null) {
     return res.status(400).json({ error: 'Preencha todos os campos.' });
-  }
-
-  if (newPassword.length < 6) {
-    return res.status(400).json({
-      error: 'A nova senha deve ter pelo menos 6 caracteres.'
-    });
   }
 
   try {
@@ -367,8 +383,9 @@ router.put('/change-password', async (req, res) => {
     // Usuário antigo: mantém exatamente o fluxo existente.
     if (!user.auth_user_id) {
       if (user.password !== currentPassword) {
-        return res.status(401).json({ error: 'Senha incorreta' });
+        return res.status(401).json({ error: 'A senha atual está incorreta.' });
       }
+      if (!isValidNewPassword(newPassword)) return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 carateres.' });
 
       await runQuery(
         'UPDATE users SET password = ? WHERE id = ?',
@@ -385,8 +402,13 @@ router.put('/change-password', async (req, res) => {
     });
 
     if (loginError) {
-      return res.status(401).json({ error: 'Senha incorreta' });
+      logSupabaseAuthError('Erro do Supabase ao validar senha atual:', loginError);
+      if (loginError.code === 'invalid_credentials' || loginError.message === 'Invalid login credentials') {
+        return res.status(401).json({ error: 'A senha atual está incorreta.' });
+      }
+      return res.status(503).json({ error: 'Não foi possível validar a senha atual. Tente novamente.' });
     }
+    if (!isValidNewPassword(newPassword)) return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 carateres.' });
 
     const { error: updateError } = await supabase.auth.admin.updateUserById(
       user.auth_user_id,
@@ -449,7 +471,7 @@ router.delete('/delete/:id', async (req, res) => {
 
 router.post('/register', async (req, res) => {
   const { name, password } = req.body;
-  const email = req.body.email?.trim().toLowerCase();
+  const email = normalizeEmail(req.body.email);
 
   if (!name || !email || !password) {
     return res.status(400).json({
@@ -457,7 +479,8 @@ router.post('/register', async (req, res) => {
     });
   }
 
-  if (password.length < 6) {
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Formato de e-mail inválido.' });
+  if (!isValidNewPassword(password)) {
     return res.status(400).json({
       error: 'A senha deve ter pelo menos 6 caracteres.'
     });
@@ -543,11 +566,12 @@ router.post('/register', async (req, res) => {
 // ==========================================
 
 router.post('/resend-confirmation', async (req, res) => {
-  const email = req.body.email?.trim().toLowerCase();
+  const email = normalizeEmail(req.body.email);
 
   if (!email) {
     return res.status(400).json({ error: 'Informe seu e-mail.' });
   }
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Formato de e-mail inválido.' });
 
   try {
     const user = await getOne(
@@ -596,11 +620,12 @@ router.post('/resend-confirmation', async (req, res) => {
 // ==========================================
 
 router.post('/request-password-reset', async (req, res) => {
-  const email = req.body.email?.trim().toLowerCase();
+  const email = normalizeEmail(req.body.email);
 
   if (!email) {
     return res.status(400).json({ error: 'Informe seu e-mail.' });
   }
+  if (!isValidEmail(email)) return res.status(400).json({ error: 'Formato de e-mail inválido.' });
 
   try {
     const user = await getOne(
@@ -649,9 +674,9 @@ router.post('/reset-password', async (req, res) => {
     });
   }
 
-  if (newPassword.length < 6) {
+  if (!isValidNewPassword(newPassword)) {
     return res.status(400).json({
-      error: 'A nova senha deve ter pelo menos 6 caracteres.'
+      error: 'A nova senha deve ter no mínimo 6 carateres.'
     });
   }
 

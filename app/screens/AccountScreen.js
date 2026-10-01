@@ -14,7 +14,8 @@ import {
   FlatList, 
   Image, 
   ScrollView, 
-  Platform
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -67,6 +68,8 @@ export default function AccountScreen({ navigation }) {
   // --- ESTADOS DE INPUTS ORIGINAIS ---
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
   const [currPass, setCurrPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
@@ -83,6 +86,7 @@ export default function AccountScreen({ navigation }) {
     // Inicializar apenas ao abrir: atualizações do perfil não apagam o rascunho.
     setNewName(profile?.name || '');
     setNewEmail(profile?.email || '');
+    setEmailPassword('');
     setEditModal(true);
   };
 
@@ -97,8 +101,12 @@ export default function AccountScreen({ navigation }) {
   };
 
   const handleUpdate = async () => {
-    const success = await updateAccount(newName, newEmail);
-    if (success) setEditModal(false);
+    if (savingProfile) return;
+    setSavingProfile(true);
+    try {
+      const success = await updateAccount(newName, newEmail, emailPassword);
+      if (success) { setEmailPassword(''); setEditModal(false); }
+    } finally { setSavingProfile(false); }
   };
 
   const handlePasswordChange = async () => {
@@ -109,14 +117,16 @@ export default function AccountScreen({ navigation }) {
       return Alert.alert("Erro", "A confirmação da nova senha não coincide.");
     }
 
+    try {
     const success = await changePassword(currPass, newPass);
     if (success) {
       Alert.alert("Sucesso 🎉", "Sua senha foi alterada com sucesso!");
       setPwdModal(false);
       setCurrPass(''); setNewPass(''); setConfirmPwd('');
     } else {
-      Alert.alert("Erro", "A senha atual digitada está incorreta.");
+      Alert.alert("Erro", "Não foi possível alterar a senha. Tente novamente.");
     }
+    } catch (error) { Alert.alert('Erro', error.message || 'Não foi possível alterar a senha. Tente novamente.'); }
   };
 
   const handleDeleteAccount = () => {
@@ -426,19 +436,25 @@ export default function AccountScreen({ navigation }) {
 
         {/* MODAL 1: EDITAR PERFIL */}
         <Modal visible={editModal} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={[styles.modalContent, { alignItems: 'stretch', maxHeight: '95%' }]}>
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }}>
               <Text style={styles.modalTitle}>Editar Perfil</Text>
               <TextInput style={styles.input} placeholder="Nome" value={newName} onChangeText={setNewName} underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TextInput style={styles.input} placeholder="E-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" underlineColorAndroid="transparent" placeholderTextColor="#999" />
-              <TouchableOpacity style={styles.btnSave} onPress={handleUpdate}>
-                <Text style={styles.btnSaveText}>Salvar</Text>
+              {newEmail.trim().toLowerCase() !== (profile?.email || '').trim().toLowerCase() && <>
+                <Text style={{ color: colors.text, marginBottom: 12 }}>Confirme sua senha atual. O novo e-mail só será usado após a confirmação.</Text>
+                <PasswordInput resetKey={editModal} style={styles.input} placeholder="Senha atual para alterar e-mail" value={emailPassword} onChangeText={setEmailPassword} editable={!savingProfile} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              </>}
+              <TouchableOpacity disabled={savingProfile} style={[styles.btnSave, savingProfile && { opacity: 0.5 }]} onPress={handleUpdate}>
+                <Text style={styles.btnSaveText}>{savingProfile ? 'Salvando…' : 'Salvar'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditModal(false)} style={{marginTop: 15}}>
+              <TouchableOpacity disabled={savingProfile} onPress={() => { setEmailPassword(''); setEditModal(false); }} style={{marginTop: 15}}>
                 <Text style={{textAlign: 'center', color: colors.text}}>Voltar</Text>
               </TouchableOpacity>
+              </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* MODAL 2: MUDAR SENHA */}

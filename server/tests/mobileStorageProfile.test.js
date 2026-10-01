@@ -152,7 +152,7 @@ test('perfil: digitação sobrevive a renderizações e atualização do context
   }
   assert.equal(f.saved.length, 0);
   await ui.handleUpdate();
-  assert.deepEqual(f.saved, [['Lucass', 'lucass@example.test']]);
+  assert.deepEqual(f.saved, [['Lucass', 'lucass@example.test', '']]);
   assert.equal(f.render().editModal, false);
 });
 
