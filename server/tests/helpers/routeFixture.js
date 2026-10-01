@@ -24,6 +24,13 @@ async function routeFixture(t, route = 'auth', options = {}) {
       : require('./subscriptionTransaction').subscriptionTransaction({ user, state, options, record }),
     get(sql, params, cb) {
       record('get', { sql, params });
+      if (sql.includes('DELETE FROM public.animals')) {
+        if (options.authorDeleteError) return cb(options.authorDeleteError);
+        if (state.authorDeleted || options.missingAnimal || String(params[0]) !== '42'
+            || String(options.creatorId ?? 7) !== String(params[1])) return cb(null, null);
+        state.authorDeleted = true;
+        return cb(null, { id: 42, image_url: options.authorPhoto || null, rescue_image_url: null });
+      }
       if (sql.trim().startsWith('UPDATE users SET coins')) {
         if (options.writeError) return cb(options.writeError);
         if (options.missingUser) return cb(null, null);
@@ -103,6 +110,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     '../services/subscriptions': require('../../services/subscriptions'),
     '../services/credentialValidation': require('../../services/credentialValidation'),
     '../services/animalCreationLimit': require('../../services/animalCreationLimit'),
+    './animalAuthorDeletion': require('../../routes/animalAuthorDeletion'),
     '../services/emailConfirmationSettings': { async requireEmailConfirmation() {
       if (options.confirmationDisabled) throw new Error('EMAIL_CONFIRMATION_REQUIRED');
     } },
@@ -110,6 +118,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
       createClient: () => ({ auth, storage: { from(bucket) {
         assert.equal(bucket, 'animals');
         return {
+          async remove(paths) { record('removePhoto', { paths }); return { error: options.removePhotoError }; },
           async upload(name, buffer, config) {
             record('upload', { name, size: buffer.length, config }); return { error: options.uploadError };
           },

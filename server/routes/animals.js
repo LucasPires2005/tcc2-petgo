@@ -5,6 +5,7 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { moderateImage } = require('../services/imageModeration');
 const { reserveAnimalCreation, releaseAnimalCreation } = require('../services/animalCreationLimit');
+const { createAnimalAuthorDeletionRouter } = require('./animalAuthorDeletion');
 const { createRequireMobileUser, bindAnimalActor } = require('../middleware/requireMobileUser');
 router.use(createRequireMobileUser({ db }));
 
@@ -12,6 +13,7 @@ router.use(createRequireMobileUser({ db }));
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+router.use(createAnimalAuthorDeletionRouter({ db, storage: supabase.storage, supabaseUrl: SUPABASE_URL }));
 
 // Armazena a imagem temporariamente na memória RAM para fazer o upload dos bytes
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -130,15 +132,15 @@ router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
     const parsedLatitude = latitude ? parseFloat(latitude) : null;
     const parsedLongitude = longitude ? parseFloat(longitude) : null;
     const parsedUserId = userId ? parseInt(userId, 10) : null;
-    const sql = `INSERT INTO animals (name, species, breed, health, latitude, longitude, image_url, "userId", urgency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO animals (name, species, breed, health, latitude, longitude, image_url, "userId", urgency, creator_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const params = [
       name || "Sem nome", species, breed, health,
-      parsedLatitude, parsedLongitude, imageUrl, parsedUserId, urgency || 'Estável'
+      parsedLatitude, parsedLongitude, imageUrl, parsedUserId, urgency || 'Estável', req.mobileUser.id
     ];
 
     await new Promise((resolve, reject) => db.run(sql, params, error => error ? reject(error) : resolve()));
     created = true;
-    res.json({ message: "Animal cadastrado com sucesso!", ...req.body, image_url: imageUrl });
+    res.json({ message: "Animal cadastrado com sucesso!", ...req.body, image_url: imageUrl, creator_id: req.mobileUser.id });
   } catch (error) {
     console.error('Erro ao cadastrar animal:', { code: error.code || 'ANIMAL_CREATE_FAILED' });
     res.status(500).json({ error: 'Não foi possível cadastrar o animal. Tente novamente.' });

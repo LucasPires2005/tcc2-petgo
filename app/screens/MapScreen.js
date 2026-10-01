@@ -28,6 +28,8 @@ import { getBestAvailableLocation } from '../services/location';
 import PetMap from '../components/PetMap';
 import PhotoSourceOptions from '../components/PhotoSourceOptions';
 import { selectAnimalPhoto } from '../services/photoSelection';
+import AnimalDeletionForm from '../components/AnimalDeletionForm';
+import { isAnimalAuthor } from '../services/animalDeletion';
 
 // Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
 const getRelativeTime = (dateString) => {
@@ -55,6 +57,7 @@ export default function MapScreen() {
   const [locationError, setLocationError] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false); 
+  const [deleteMode, setDeleteMode] = useState(false);
   const [rescueModalVisible, setRescueModalVisible] = useState(false);
   const [isUploadingAnimal, setIsUploadingAnimal] = useState(false);
   const [isUploadingRescue, setIsUploadingRescue] = useState(false);
@@ -368,6 +371,7 @@ export default function MapScreen() {
         isPremium={Boolean(user?.is_premium)}
         onSelectLocation={setSelectedLocation}
         onSelectAnimal={(animal) => {
+          setDeleteMode(false);
           setSelectedAnimal(animal);
           setDetailVisible(true);
         }}
@@ -395,13 +399,14 @@ export default function MapScreen() {
       </TouchableOpacity>}
 
       {/* Drawer de Detalhes do Animal */}
-      <Modal visible={detailVisible} animationType="slide" transparent={true}>
-        <TouchableWithoutFeedback onPress={() => setDetailVisible(false)}>
-          <View style={styles.drawerOverlay}>
+      <Modal visible={detailVisible} animationType="slide" transparent={true} onRequestClose={() => { if (!deleteMode) setDetailVisible(false); }}>
+        <TouchableWithoutFeedback onPress={() => { if (!deleteMode) setDetailVisible(false); }}>
+          <KeyboardAvoidingView style={styles.drawerOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <TouchableWithoutFeedback>
               <View style={styles.drawerContent}>
                 <View style={styles.drawerHandle} />
-                <ScrollView
+                {deleteMode ? <AnimalDeletionForm animal={selectedAnimal} onCancel={() => setDeleteMode(false)}
+                  onDeleted={() => { setDeleteMode(false); setDetailVisible(false); setSelectedAnimal(null); }} /> : <ScrollView
                   contentContainerStyle={{
                     paddingBottom: Math.max(insets.bottom, 16) + 20
                   }}
@@ -447,10 +452,13 @@ export default function MapScreen() {
                     <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.donateButtonNew} onPress={() => { setDetailVisible(false); setTimeout(() => setDonateModalVisible(true), 400); }}><Ionicons name="heart" size={18} color={colors.action} /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
                   </View>
-                </ScrollView>
+                  {isAnimalAuthor(selectedAnimal, user?.id) && <TouchableOpacity accessibilityRole="button"
+                    style={{ minHeight: 48, padding: 14, marginTop: 18, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, alignItems: 'center' }}
+                    onPress={() => setDeleteMode(true)}><Text style={{ color: colors.danger, fontWeight: '600' }}>Excluir meu registro</Text></TouchableOpacity>}
+                </ScrollView>}
               </View>
             </TouchableWithoutFeedback>
-          </View>
+          </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
       </Modal>
 

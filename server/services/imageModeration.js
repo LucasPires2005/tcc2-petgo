@@ -1,17 +1,19 @@
 const MODERATION_ENDPOINT = 'https://api.sightengine.com/1.0/check.json';
-const MODERATION_MODELS = 'nudity-2.1,gore-2.0';
+const MODERATION_MODELS = 'nudity-2.1,gore-2.0,face-analysis';
 const MODERATION_TIMEOUT_MS = 20000;
 
-let missingCredentialsWarningShown = false;
-
 function isConfigured() {
-  return Boolean(
-    process.env.SIGHTENGINE_API_USER &&
-    process.env.SIGHTENGINE_API_SECRET
-  );
+  return ['SIGHTENGINE_API_USER', 'SIGHTENGINE_API_SECRET'].every(key => process.env[key]?.trim());
+}
+
+function unavailable() {
+  return Object.assign(new Error('Não foi possível analisar a imagem. Tente novamente em instantes.'), { code: 'MODERATION_UNAVAILABLE' });
 }
 
 function evaluateModeration(result) {
+  const probability = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  if (!result || !Array.isArray(result.faces) || !Array.isArray(result.artificial_faces)
+      || ![result.nudity?.sexual_activity, result.nudity?.sexual_display, result.nudity?.erotica, result.gore?.prob].every(probability)) throw unavailable();
   const nudity = result.nudity || {};
   const gore = result.gore || {};
   const goreClasses = gore.classes || {};
@@ -41,6 +43,15 @@ function evaluateModeration(result) {
     };
   }
 
+  const prominentFace = [...result.faces, ...result.artificial_faces].some(face => {
+    if (!face || ![face.x1, face.y1, face.x2, face.y2].every(probability)
+        || face.x2 <= face.x1 || face.y2 <= face.y1) throw unavailable();
+    // Coordenadas normalizadas documentadas pelo face-analysis.
+    // Pessoas pequenas ao fundo não são o alvo deste bloqueio de selfies.
+    return (face.x2 - face.x1) * (face.y2 - face.y1) >= 0.02;
+  });
+  if (prominentFace) return { allowed: false,
+    reason: 'A foto contém um rosto humano em destaque. Envie uma foto focada no cão ou gato, sem selfies.' };
   return { allowed: true };
 }
 
@@ -50,14 +61,8 @@ async function moderateImage(file) {
   }
 
   if (!isConfigured()) {
-    if (!missingCredentialsWarningShown) {
-      console.warn(
-        'Moderação de imagens desativada: configure SIGHTENGINE_API_USER e SIGHTENGINE_API_SECRET.'
-      );
-      missingCredentialsWarningShown = true;
-    }
-
-    return { allowed: true, skipped: true };
+    // Não aprovar silenciosamente uploads que não foram analisados.
+    throw unavailable();
   }
 
   const controller = new AbortController();
@@ -104,4 +109,4 @@ async function moderateImage(file) {
   }
 }
 
-module.exports = { moderateImage };
+module.exports = { moderateImage, evaluateModeration };

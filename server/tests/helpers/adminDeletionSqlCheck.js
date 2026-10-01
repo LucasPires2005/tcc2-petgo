@@ -158,4 +158,42 @@ test('migração 007 em PostgreSQL isolado (sem serviços reais)', async t => {
       assert.equal(animalDetails.status, 1);
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
+  await t.test('migração 008 preserva autoria após resgate e autor exclui com motivo atômico', async () => {
+    const express = require('express');
+    const { createAnimalAuthorDeletionRouter } = require('../../routes/animalAuthorDeletion');
+    // Registro legado resgatado não pode ganhar autoria a partir do resgatador.
+    const migration008 = readFileSync(resolve(__dirname, '../../sql/008_animal_authorship.sql'), 'utf8');
+    await db.exec(migration008); await db.exec(migration008);
+    assert.equal((await db.query('SELECT creator_id FROM public.animals WHERE id = 4')).rows[0].creator_id, null);
+    assert.equal((await db.query('SELECT creator_id FROM public.animals WHERE id = 1')).rows[0].creator_id, 1);
+    await db.exec(`INSERT INTO public.users (id) VALUES (6);
+      INSERT INTO public.animals (id, "userId", status, creator_id, name) VALUES (60, 6, 0, 1, 'Autoria');
+      UPDATE public.animals SET "userId" = 1, status = 1 WHERE id = 60;`);
+    assert.equal((await db.query('SELECT creator_id FROM public.animals WHERE id = 60')).rows[0].creator_id, 6);
+    const adapter = { get(sql, params, callback) {
+      let i = 0;
+      db.query(sql.replace(/\?/g, () => `$${++i}`), params).then(result => callback(null, result.rows[0]), callback);
+    } };
+    const app = express(); app.use(express.json());
+    // A sessão real é coberta pelos testes de rota; aqui testamos SQL/PostgreSQL.
+    app.use((req, res, next) => { req.mobileUser = { id: Number(req.get('Test-Actor')) }; next(); });
+    app.use('/animals', createAnimalAuthorDeletionRouter({ db: adapter }));
+    const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
+    const request = actor => fetch(`http://127.0.0.1:${server.address().port}/animals/60`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', 'Test-Actor': String(actor) },
+      body: JSON.stringify({ reason: 'Animal já encontrado' })
+    });
+    try {
+      assert.equal((await request(1)).status, 404);
+      // Restrição simulada comprova que uma falha no log desfaz o DELETE.
+      await db.exec('ALTER TABLE petgo_private.animal_author_deletions ADD CONSTRAINT test_block CHECK (animal_id <> 60)');
+      assert.equal((await request(6)).status, 503);
+      assert.equal((await db.query('SELECT id FROM public.animals WHERE id = 60')).rows.length, 1);
+      await db.exec('ALTER TABLE petgo_private.animal_author_deletions DROP CONSTRAINT test_block');
+      assert.equal((await request(6)).status, 200);
+      assert.equal((await request(6)).status, 404);
+      assert.deepEqual((await db.query('SELECT actor_user_id, animal_id, reason FROM petgo_private.animal_author_deletions')).rows,
+        [{ actor_user_id: 6, animal_id: 60, reason: 'Animal já encontrado' }]);
+    } finally { await new Promise(resolve => server.close(resolve)); }
+  });
 });
