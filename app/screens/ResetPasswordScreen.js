@@ -2,7 +2,6 @@ import React, { useContext, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -11,6 +10,7 @@ import {
   ScrollView
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 
 export default function ResetPasswordScreen({ route, navigation }) {
   const { user, logout, resetPasswordWithToken } = useContext(AuthContext);
@@ -106,21 +106,19 @@ export default function ResetPasswordScreen({ route, navigation }) {
             </Text>
           )}
 
-          <TextInput
+          <PasswordInput
             placeholder="Nova senha"
             placeholderTextColor="#999"
             style={styles.input}
-            secureTextEntry
             value={newPassword}
             onChangeText={setNewPassword}
             editable={!isLoading && !!token}
           />
 
-          <TextInput
+          <PasswordInput
             placeholder="Confirmar nova senha"
             placeholderTextColor="#999"
             style={styles.input}
-            secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             editable={!isLoading && !!token}

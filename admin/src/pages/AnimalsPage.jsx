@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { deleteAdminAnimal, fetchAdminAnimals } from '../lib/api';
+import { animalStatusLabel } from '../lib/animalStatus.mjs';
 
 const buttonClass = 'rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm disabled:opacity-50';
 
@@ -90,7 +91,7 @@ export default function AnimalsPage() {
       <div className="mt-4 grid gap-5 lg:grid-cols-2">{data.animals.map((animal) => <article key={animal.id} className="min-w-0 rounded-xl border bg-white p-5">
         <h2 className="break-words text-xl font-semibold">{animal.name || 'Sem nome'} <span className="text-sm font-normal text-slate-500">#{animal.id}</span></h2>
         <p className="mt-2 break-words text-sm text-slate-600">{animal.species || 'Espécie não informada'} · {animal.breed || 'Raça não informada'}</p>
-        <p className="mt-2 break-words text-sm">Status: {animal.status || 'Não informado'} · Urgência: {animal.urgency ?? 'Não informada'}</p>
+        <p className="mt-2 break-words text-sm">Status: {animalStatusLabel(animal.status)} · Urgência: {animal.urgency ?? 'Não informada'}</p>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm">Saúde: {animal.health || 'Não informada'}</p>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <AnimalPhoto key={`original-${animal.image_url}`} url={animal.image_url} label="Foto do cadastro" />

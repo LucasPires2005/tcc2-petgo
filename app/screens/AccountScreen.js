@@ -1,5 +1,6 @@
 import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
+import PasswordInput from '../components/PasswordInput';
 import React, { useContext, useState, useCallback } from 'react';
 import { 
   View, 
@@ -444,9 +445,9 @@ export default function AccountScreen({ navigation }) {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Mudar Senha</Text>
-              <TextInput style={styles.input} placeholder="Senha Atual" secureTextEntry value={currPass} onChangeText={setCurrPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
-              <TextInput style={styles.input} placeholder="Nova Senha" secureTextEntry value={newPass} onChangeText={setNewPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
-              <TextInput style={styles.input} placeholder="Confirmar Nova Senha" secureTextEntry value={confirmPwd} onChangeText={setConfirmPwd} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              <PasswordInput resetKey={pwdModal} style={styles.input} placeholder="Senha Atual" value={currPass} onChangeText={setCurrPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              <PasswordInput resetKey={pwdModal} style={styles.input} placeholder="Nova Senha" value={newPass} onChangeText={setNewPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              <PasswordInput resetKey={pwdModal} style={styles.input} placeholder="Confirmar Nova Senha" value={confirmPwd} onChangeText={setConfirmPwd} underlineColorAndroid="transparent" placeholderTextColor="#999" />
               <TouchableOpacity style={styles.btnSave} onPress={handlePasswordChange}>
                 <Text style={styles.btnSaveText}>Atualizar Senha</Text>
               </TouchableOpacity>

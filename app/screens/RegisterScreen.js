@@ -14,6 +14,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen({ navigation }) {
@@ -158,21 +159,19 @@ export default function RegisterScreen({ navigation }) {
           keyboardType="email-address"
           editable={!isLoading}
         />
-        <TextInput
+        <PasswordInput
           placeholder="Senha (mín. 6 caracteres)"
           placeholderTextColor="#999"
           style={styles.input}
-          secureTextEntry
           onChangeText={setPassword}
           value={password}
           editable={!isLoading}
         />
         {/* RECUPERADO: Campo de confirmar senha */}
-        <TextInput
+        <PasswordInput
           placeholder="Confirmar Senha"
           placeholderTextColor="#999"
           style={styles.input}
-          secureTextEntry
           onChangeText={setConfirmPassword}
           value={confirmPassword}
           editable={!isLoading}

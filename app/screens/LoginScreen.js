@@ -12,6 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 
 export default function LoginScreen({ navigation }) {
   const { login, requestPasswordReset } = useContext(AuthContext);
@@ -83,11 +84,10 @@ export default function LoginScreen({ navigation }) {
               keyboardType="email-address"
               editable={!isLoading}
             />
-            <TextInput 
+            <PasswordInput
               placeholder="Senha" 
               placeholderTextColor="#999"
               style={styles.input} 
-              secureTextEntry 
               onChangeText={setPassword}
               value={password}
               editable={!isLoading}

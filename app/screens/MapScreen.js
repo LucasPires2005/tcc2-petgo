@@ -1,6 +1,6 @@
 import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -15,7 +15,8 @@ import {
   ScrollView, 
   Share, 
   TouchableWithoutFeedback,
-  ActivityIndicator
+  ActivityIndicator,
+  Keyboard
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,6 +25,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
 import { getBestAvailableLocation } from '../services/location';
 import PetMap from '../components/PetMap';
+import PhotoSourceOptions from '../components/PhotoSourceOptions';
+import { selectAnimalPhoto } from '../services/photoSelection';
 
 // Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
 const getRelativeTime = (dateString) => {
@@ -76,6 +79,9 @@ export default function MapScreen() {
   const [rescuerName, setRescuerName] = useState('');
   const [rescuerContact, setRescuerContact] = useState('');
   const [rescueImage, setRescueImage] = useState(null); 
+  const [photoSourceTarget, setPhotoSourceTarget] = useState(null);
+  const photoBusy = useRef(false);
+  const photoRequest = useRef(0);
 
   const API_URL = `${API_BASE_URL}/animals`;
 
@@ -84,6 +90,47 @@ export default function MapScreen() {
     fetchAnimals(); 
 
   }, []);
+  useEffect(() => () => { photoRequest.current++; }, []);
+
+  function closeAnimalForm() {
+    if (isUploadingAnimal) return;
+    photoRequest.current++;
+    setPhotoSourceTarget(null);
+    setModalVisible(false);
+    setSelectedLocation(null);
+  }
+
+  function closeRescueForm() {
+    if (isUploadingRescue) return;
+    photoRequest.current++;
+    setPhotoSourceTarget(null);
+    setRescueModalVisible(false);
+  }
+
+  function openPhotoOptions(target) {
+    if (photoBusy.current || isUploadingAnimal || isUploadingRescue) return;
+    Keyboard.dismiss();
+    setPhotoSourceTarget(target);
+  }
+
+  async function choosePhoto(source, target) {
+    if (photoBusy.current || isUploadingAnimal || isUploadingRescue) return;
+    photoBusy.current = true;
+    const request = ++photoRequest.current;
+    setPhotoSourceTarget(null);
+    try {
+      const asset = await selectAnimalPhoto(ImagePicker, source);
+      if (asset && request === photoRequest.current) {
+        if (target === 'rescue') setRescueImage(asset);
+        else setImage(asset);
+      }
+    } catch (error) {
+      if (request === photoRequest.current) Alert.alert('Não foi possível selecionar a foto',
+        error.message || 'Verifique as permissões do aparelho e tente novamente.');
+    } finally {
+      photoBusy.current = false;
+    }
+  }
 
   async function getLocation() {
     setLocationLoading(true);
@@ -107,18 +154,7 @@ export default function MapScreen() {
   }
 
   async function pickRescueImage() {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (permissionResult.granted === false) {
-      Alert.alert("Permissão Necessária", "Autorize o uso da câmera.");
-      return;
-    }
-    // FIX: Adicionado mediaTypes: ['images'] para remover o aviso de depreciação
-    let result = await ImagePicker.launchCameraAsync({ 
-      mediaTypes: ['images'], 
-      allowsEditing: true, 
-      quality: 0.7
-    });
-    if (!result.canceled) setRescueImage(result.assets[0]);
+    openPhotoOptions('rescue');
   }
 
   const handleMercadoPagoDonation = async () => {
@@ -156,13 +192,7 @@ export default function MapScreen() {
   };
 
   async function pickImage() {
-    // FIX: Substituído o MediaTypeOptions pelo novo padrão ['images']
-    let result = await ImagePicker.launchImageLibraryAsync({ 
-      mediaTypes: ['images'], 
-      allowsEditing: true, 
-      quality: 0.7
-    });
-    if (!result.canceled) setImage(result.assets[0]);
+    openPhotoOptions('animal');
   }
 
   async function saveAnimal() {
@@ -356,6 +386,12 @@ export default function MapScreen() {
       >
         <Text style={styles.addButtonText}>{selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}</Text>
       </TouchableOpacity>
+      {selectedLocation && !modalVisible && <TouchableOpacity
+        accessibilityRole="button" accessibilityLabel="Cancelar seleção do local"
+        style={styles.clearLocationButton} onPress={closeAnimalForm}>
+        <Ionicons name="close" size={20} color="#334155" />
+        <Text style={{ color: '#334155', fontWeight: 'bold' }}>Cancelar seleção</Text>
+      </TouchableOpacity>}
 
       {/* Drawer de Detalhes do Animal */}
       <Modal visible={detailVisible} animationType="slide" transparent={true}>
@@ -484,14 +520,14 @@ export default function MapScreen() {
         transparent={true}
         statusBarTranslucent
         navigationBarTranslucent
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={closeAnimalForm}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalKeyboardContainer}
         >
           <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+            <TouchableWithoutFeedback onPress={closeAnimalForm}>
               <View style={StyleSheet.absoluteFill} />
             </TouchableWithoutFeedback>
             <View style={styles.modalContent}>
@@ -531,8 +567,11 @@ export default function MapScreen() {
                   <TouchableOpacity onPress={pickImage} style={styles.imagePickerBtn}>
                     {image ? <Image source={{ uri: image.uri }} style={styles.previewImage} /> : <Text style={{color: '#999'}}>📸 Adicionar Foto</Text>}
                   </TouchableOpacity>
+                  {photoSourceTarget === 'animal' && <PhotoSourceOptions
+                    onSelect={source => choosePhoto(source, 'animal')}
+                    onCancel={() => setPhotoSourceTarget(null)} />}
                   <View style={styles.modalActions}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}><Text style={{color: '#999'}}>Voltar</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.cancelButton} disabled={isUploadingAnimal} onPress={closeAnimalForm}><Text style={{color: '#999'}}>Voltar</Text></TouchableOpacity>
                     <TouchableOpacity 
                       style={[styles.saveButton, isUploadingAnimal && {opacity: 0.6}]} 
                       onPress={saveAnimal}
@@ -552,18 +591,21 @@ export default function MapScreen() {
       </Modal>
 
       {/* Modal Resgate */}
-      <Modal visible={rescueModalVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlayCenter}>
+      <Modal visible={rescueModalVisible} animationType="fade" transparent={true} onRequestClose={closeRescueForm}>
+        <KeyboardAvoidingView style={styles.modalOverlayCenter} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.rescueModal}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
             <Text style={styles.modalTitle}>Validar Resgate ❤️</Text>
-            <TextInput placeholder="Seu Nome" value={rescuerName} onChangeText={setRescuerName} style={styles.input} />
-            <TextInput placeholder="WhatsApp" value={rescuerContact} onChangeText={setRescuerContact} style={styles.input} keyboardType="phone-pad" />
+            <TextInput placeholder="Seu Nome" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerName} onChangeText={setRescuerName} style={[styles.input, styles.rescueInput]} />
+            <TextInput placeholder="WhatsApp" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerContact} onChangeText={setRescuerContact} style={[styles.input, styles.rescueInput]} keyboardType="phone-pad" />
              
             <Text style={{fontWeight:'bold', marginBottom:10, color:'#333'}}>Foto de Prova (Final Feliz) 📸</Text>
             <TouchableOpacity onPress={pickRescueImage} style={styles.imagePickerMini}>
               {rescueImage ? <Image source={{ uri: rescueImage.uri }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
             </TouchableOpacity>
-
+            {photoSourceTarget === 'rescue' && <PhotoSourceOptions
+              onSelect={source => choosePhoto(source, 'rescue')}
+              onCancel={() => setPhotoSourceTarget(null)} />}
             <TouchableOpacity 
               style={[styles.confirmRescueBtn, isUploadingRescue && {opacity: 0.6}]} 
               onPress={handleRescue}
@@ -575,15 +617,20 @@ export default function MapScreen() {
                 <Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setRescueModalVisible(false)} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#999'}}>Voltar</Text></TouchableOpacity>
+            <TouchableOpacity disabled={isUploadingRescue} onPress={closeRescueForm} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#52606D'}}>Voltar</Text></TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rescueInput: { backgroundColor: '#F8FAFC', color: '#1F2937', borderColor: '#94A3B8', opacity: 1 },
+  clearLocationButton: { position: 'absolute', bottom: 110, alignSelf: 'center', flexDirection: 'row', gap: 6,
+    backgroundColor: '#FFF', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 20, paddingHorizontal: 16,
+    minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1 },
   map: { flex: 1 },
   locationState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#FFF' },
@@ -622,7 +669,7 @@ const styles = StyleSheet.create({
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '90%', overflow: 'hidden' },
   animalFormContent: { paddingHorizontal: 25, paddingTop: 25 },
-  rescueModal: { backgroundColor: '#FFF', borderRadius: 25, padding: 25, elevation: 10 },
+  rescueModal: { backgroundColor: '#FFF', borderRadius: 25, padding: 25, elevation: 10, maxHeight: '95%', flexShrink: 1 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' },
   input: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#EEE', color: '#333' },
   row: { flexDirection: 'row', marginBottom: 15 },
