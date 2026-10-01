@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { deleteAdminAnimal, fetchAdminAnimals } from '../lib/api';
 import { animalStatusLabel } from '../lib/animalStatus.mjs';
+import ActionReasonModal from '../components/ActionReasonModal';
 
-const buttonClass = 'rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm disabled:opacity-50';
+const buttonClass = 'rounded-lg border border-primary bg-white px-4 py-2 text-sm text-primary hover:bg-surface disabled:opacity-50';
 
 function AnimalPhoto({ url, label }) {
   const [failed, setFailed] = useState(false);
@@ -27,6 +28,7 @@ export default function AnimalsPage() {
   const deleteLock = useRef(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [selectedAnimal, setSelectedAnimal] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,14 +48,12 @@ export default function AnimalsPage() {
     return () => controller.abort();
   }, [accessToken, filters, attempt, invalidateAccess]);
 
-  async function remove(animal) {
+  async function remove(animal, reason) {
     if (deleteLock.current) return;
-    const reason = window.prompt('Informe o motivo da exclusão (3 a 500 caracteres):');
-    if (reason === null) return;
     if (reason.trim().length < 3 || reason.trim().length > 500) {
       setError('Informe um motivo com 3 a 500 caracteres.'); return;
     }
-    if (!window.confirm(`Excluir definitivamente o registro "${animal.name || 'Sem nome'}" (ID ${animal.id})?\n\nEle deixará de aparecer nas próximas consultas do aplicativo. Não há desfazer no painel. As imagens permanecerão no Storage; contas e moedas não serão alteradas.`)) return;
+    setSelectedAnimal(null);
     deleteLock.current = true;
     setDeleting(animal.id); setError(''); setNotice('');
     try {
@@ -97,7 +97,7 @@ export default function AnimalsPage() {
           <AnimalPhoto key={`original-${animal.image_url}`} url={animal.image_url} label="Foto do cadastro" />
           <AnimalPhoto key={`rescue-${animal.rescue_image_url}`} url={animal.rescue_image_url} label="Foto do resgate" />
         </div>
-        <button disabled={busy} className="mt-5 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50" onClick={() => remove(animal)}>
+        <button disabled={busy} className="mt-5 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50" onClick={() => setSelectedAnimal(animal)}>
           {deleting === animal.id ? 'Excluindo…' : 'Excluir registro'}
         </button>
       </article>)}</div>
@@ -110,5 +110,9 @@ export default function AnimalsPage() {
       </nav>
     </>}
     <p className="mt-8 text-sm text-slate-500">Excluir remove apenas o registro do banco. Não apaga arquivos do Storage nem desfaz moedas concedidas. O app refletirá a exclusão ao consultar novamente os animais.</p>
+    {selectedAnimal && <ActionReasonModal title="Motivo da Exclusão" destructive
+      description={`Excluir definitivamente o registro "${selectedAnimal.name || 'Sem nome'}" (ID ${selectedAnimal.id})?\nEle deixará de aparecer nas próximas consultas do aplicativo. Não há desfazer no painel. As imagens permanecerão no Storage; contas e moedas não serão alteradas.`}
+      confirmLabel="Excluir registro" onCancel={() => setSelectedAnimal(null)}
+      onConfirm={(reason) => remove(selectedAnimal, reason)} />}
   </section>;
 }

@@ -29,7 +29,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-2xl font-bold text-brand-700">PetGo.</p>
+        <p className="text-2xl font-bold text-primary">Pet<span className="text-brand-700">Go.</span></p>
         <h1 className="mt-6 text-2xl font-semibold">Acesso administrativo</h1>
         <p className="mt-2 text-sm text-slate-500">Entre com sua conta autorizada da equipe PetGo.</p>
         {(error || auth.error) && <p role="alert" className="mt-6 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error || auth.error}</p>}

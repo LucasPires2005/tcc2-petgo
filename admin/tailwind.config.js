@@ -4,7 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: { 50: '#f0fdf4', 100: '#dcfce7', 600: '#16a34a', 700: '#15803d' }
+        brand: { 50: '#F5E9E2', 100: '#F5E9E2', 600: '#741934', 700: '#8B1E3F' },
+        primary: '#5A3E2B',
+        surface: '#F5E9E2',
+        ink: '#333333',
+        success: '#22C55E'
       }
     }
   },

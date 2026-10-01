@@ -4,7 +4,7 @@ import { fetchAdminRecords } from '../lib/api';
 import { formatDateTime, localTimeZone } from '../lib/dateTime.mjs';
 
 const actions = { user_ban: 'Banimento', user_unban: 'Desbanimento', animal_delete: 'Exclusão de animal' };
-const button = 'rounded-lg border bg-white px-4 py-2 disabled:opacity-50';
+const button = 'rounded-lg border border-primary bg-white px-4 py-2 text-primary hover:bg-surface disabled:opacity-50';
 
 export default function RecordsPage({ kind }) {
   const { accessToken, invalidateAccess } = useAdminAuth();

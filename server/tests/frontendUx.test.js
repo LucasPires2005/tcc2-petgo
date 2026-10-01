@@ -150,8 +150,8 @@ test('resgate: contraste explícito nos dois inputs e rolagem limitada à altura
     assert.match(input, /underlineColorAndroid="transparent"/);
   }
   const styles = vm.runInNewContext(`${source.slice(source.indexOf('const styles = StyleSheet.create'))}; styles;`, { colors, StyleSheet: { create: value => value } });
-  assert.equal(styles.rescueInput.color, '#1F2937');
-  assert.equal(styles.rescueInput.backgroundColor, '#F8FAFC');
+  assert.equal(styles.rescueInput.color, colors.text);
+  assert.equal(styles.rescueInput.backgroundColor, colors.surface);
   assert.equal(styles.rescueInput.opacity, 1);
   assert.equal(styles.rescueModal.maxHeight, '95%');
 });

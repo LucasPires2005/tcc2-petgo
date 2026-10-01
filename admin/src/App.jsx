@@ -28,14 +28,14 @@ function Layout() {
   return (
     <div className="min-h-screen md:flex">
       <aside className="border-b border-slate-200 bg-white p-6 md:min-h-screen md:w-64 md:shrink-0 md:border-b-0 md:border-r">
-        <p className="text-2xl font-bold tracking-tight text-brand-700">PetGo<span className="text-slate-400">.</span></p>
+        <p className="text-2xl font-bold tracking-tight text-primary">Pet<span className="text-brand-700">Go.</span></p>
         <p className="mt-1 text-sm text-slate-500">Painel administrativo</p>
         <nav aria-label="Navegação principal" className="mt-8 flex flex-wrap gap-2 md:flex-col">
           {sections.map(({ path, title }) => (
             <NavLink
               key={path}
               to={path}
-              className={({ isActive }) => `rounded-xl px-4 py-3 text-sm font-medium transition-colors ${isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={({ isActive }) => `rounded-xl px-4 py-3 text-sm font-medium transition-colors ${isActive ? 'bg-brand-50 text-primary' : 'text-ink hover:bg-surface'}`}
             >
               {title}
             </NavLink>

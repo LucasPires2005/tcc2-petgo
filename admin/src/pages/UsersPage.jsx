@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { fetchAdminUsers, setAdminUserBan } from '../lib/api';
+import ActionReasonModal from '../components/ActionReasonModal';
 
 const plans = { 0: 'Sem plano', 1: 'Amigo', 2: 'Protetor', 3: 'Guardião' };
-const buttonClass = 'rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium disabled:opacity-50';
+const buttonClass = 'rounded-lg border border-primary bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-surface disabled:opacity-50';
 
 export default function UsersPage() {
   const { accessToken, invalidateAccess } = useAdminAuth();
@@ -17,16 +18,15 @@ export default function UsersPage() {
   const [changing, setChanging] = useState(false);
   const actionLock = useRef(false);
   const [notice, setNotice] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
 
-  async function changeBan(user) {
+  async function changeBan(user, reason) {
     if (actionLock.current || user.is_admin) return;
     const banned = !user.banned;
-    const reason = window.prompt('Informe o motivo desta ação (3 a 500 caracteres):');
-    if (reason === null) return;
     if (reason.trim().length < 3 || reason.trim().length > 500) {
       setError('Informe um motivo com 3 a 500 caracteres.'); return;
     }
-    if (!window.confirm(`${banned ? 'Banir' : 'Desbanir'} ${user.name || user.email} (ID ${user.id})?\nAs sessões anteriores serão revogadas. Não exclui contas, animais ou moedas.`)) return;
+    setSelectedUser(null);
     actionLock.current = true; setChanging(true); setError(''); setNotice('');
     try {
       await setAdminUserBan(accessToken, user.id, banned, reason.trim());
@@ -101,7 +101,7 @@ export default function UsersPage() {
                   <td className="px-5 py-4 tabular-nums">{user.coins == null ? '—' : Number(user.coins).toLocaleString('pt-BR')}</td>
                   <td className="px-5 py-4">
                     <p className="mb-2">{user.is_admin ? 'ADM protegido' : user.banned ? 'Banido' : 'Liberado'}</p>
-                    {!user.is_admin && <button className={buttonClass} disabled={loading || changing} onClick={() => changeBan(user)}>{user.banned ? 'Desbanir' : 'Banir'}</button>}
+                    {!user.is_admin && <button className={buttonClass} disabled={loading || changing} onClick={() => setSelectedUser(user)}>{user.banned ? 'Desbanir' : 'Banir'}</button>}
                   </td>
                 </tr>
               ))}</tbody>
@@ -117,6 +117,11 @@ export default function UsersPage() {
         </nav>
       </>}
       <p className="mt-8 text-sm text-slate-500">O plano exibido não confirma pagamento. Banimento bloqueia o acesso à API mobile, sem excluir dados. Contas ADM são protegidas. Exclusão de usuários não está incluída nesta etapa.</p>
+      {selectedUser && <ActionReasonModal
+        title={selectedUser.banned ? 'Motivo do Desbanimento' : 'Motivo do Banimento'}
+        description={`${selectedUser.banned ? 'Desbanir' : 'Banir'} ${selectedUser.name || selectedUser.email} (ID ${selectedUser.id})?\nAs sessões anteriores serão revogadas. Não exclui contas, animais ou moedas.`}
+        confirmLabel={selectedUser.banned ? 'Confirmar desbanimento' : 'Confirmar banimento'}
+        onCancel={() => setSelectedUser(null)} onConfirm={(reason) => changeBan(selectedUser, reason)} />}
     </section>
   );
 }

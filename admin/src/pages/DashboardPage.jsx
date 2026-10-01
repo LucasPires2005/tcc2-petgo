@@ -61,7 +61,7 @@ export default function DashboardPage() {
       <dl className="mt-8 grid gap-6 sm:grid-cols-2">
         {[
           { field: 'users', title: 'Usuários', detail: 'Perfis cadastrados no PetGo', color: 'text-brand-700' },
-          { field: 'animals', title: 'Animais', detail: 'Todos os registros, incluindo resgatados', color: 'text-blue-700' }
+          { field: 'animals', title: 'Animais', detail: 'Todos os registros, incluindo resgatados', color: 'text-primary' }
         ].map(({ field, title, detail, color }) => (
           <div key={field} className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
             <dt className="font-medium text-slate-600">{title}</dt>

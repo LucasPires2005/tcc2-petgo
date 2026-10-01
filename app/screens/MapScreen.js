@@ -628,7 +628,7 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  rescueInput: { backgroundColor: '#F8FAFC', color: '#1F2937', borderColor: '#94A3B8', opacity: 1 },
+  rescueInput: { backgroundColor: colors.surface, color: colors.text, borderColor: '#94A3B8', opacity: 1 },
   clearLocationButton: { position: 'absolute', bottom: 110, alignSelf: 'center', flexDirection: 'row', gap: 6,
     backgroundColor: colors.background, borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 20, paddingHorizontal: 16,
     minHeight: 44, alignItems: 'center', justifyContent: 'center' },
