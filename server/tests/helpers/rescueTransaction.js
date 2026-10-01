@@ -4,9 +4,33 @@ function rescueTransaction({ user, state, options, record }) {
   return work => {
     const job = queue.then(async () => {
       if (options.writeError) throw options.writeError;
-      const copy = { ...state };
+      const copy = { ...state, creationEvents: [...(state.creationEvents || options.creationEvents || [])] };
       const result = await work({ async query(sql, params) {
         record('tx', { sql, params });
+        if (sql.includes('pg_advisory_xact_lock')) {
+          if (options.limitError) throw options.limitError;
+          return { rows: [] };
+        }
+        if (sql.includes('COUNT(e.id)')) {
+          const at = options.now ? options.now() : Date.now();
+          const dayStart = Math.floor((at - 3 * 3600000) / 86400000) * 86400000 + 3 * 3600000;
+          const events = copy.creationEvents.filter(event => String(event.userId) === String(params[0]));
+          const recent = events.filter(event => event.at > at - 300000);
+          return { rows: [{ at: new Date(at), day_start: new Date(dayStart), recent_count: recent.length,
+            daily_count: events.filter(event => event.at >= dayStart).length,
+            recent_retry: recent.length ? Math.ceil((Math.min(...recent.map(event => event.at)) + 300000 - at) / 1000) : null,
+            daily_retry: Math.ceil((dayStart + 86400000 - at) / 1000) }] };
+        }
+        if (sql.startsWith('DELETE FROM petgo_private.animal_creation_events')) {
+          copy.creationEvents = copy.creationEvents.filter(event => String(event.userId) !== String(params[0])
+            || event.at >= Math.min(new Date(params[1]).getTime(), new Date(params[2]).getTime() - 300000));
+          return { rows: [] };
+        }
+        if (sql.startsWith('INSERT INTO petgo_private.animal_creation_events')) {
+          if (options.reservationError) throw options.reservationError;
+          copy.creationEvents.push({ id: params[0], userId: params[1], at: new Date(params[2]).getTime() });
+          return { rows: [] };
+        }
         if (sql.startsWith('SELECT id, status FROM public.animals')) {
           return { rows: options.missingAnimal ? [] : [{ id: params[0], status: copy.rescued ? 1 : 0 }] };
         }

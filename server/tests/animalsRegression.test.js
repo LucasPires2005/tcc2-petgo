@@ -40,7 +40,7 @@ for (const [suffix, method, field] of [['', 'POST', 'image'], ['/42/rescue', 'PA
       const r = await f.request(suffix, { method, token: f.token, form: animalForm(field) });
       assert.equal(r.status, status);
       assert.equal(r.body.code, code);
-      assert.equal(f.calls.some(c => ['upload', 'run'].includes(c.kind)), false);
+      assert.equal(f.calls.some(c => c.kind === 'upload' || (c.kind === 'run' && !c.sql.startsWith('DELETE FROM petgo_private.animal_creation_events'))), false);
     }
   });
 }

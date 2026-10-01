@@ -4,6 +4,7 @@ const db = require('../db');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const { moderateImage } = require('../services/imageModeration');
+const { reserveAnimalCreation, releaseAnimalCreation } = require('../services/animalCreationLimit');
 const { createRequireMobileUser, bindAnimalActor } = require('../middleware/requireMobileUser');
 router.use(createRequireMobileUser({ db }));
 
@@ -96,44 +97,59 @@ router.get('/', (req, res) => {
 // CADASTRO DE ANIMAL
 router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
   const { name, species, breed, health, latitude, longitude, userId, urgency } = req.body;
+  let reservation;
+  try {
+    reservation = await reserveAnimalCreation(db, req.mobileUser.id);
+  } catch (error) {
+    console.error('Erro ao verificar limite de cadastros:', { code: error.code || 'ANIMAL_LIMIT_UNAVAILABLE' });
+    return res.status(503).json({ error: 'Não foi possível verificar o limite de cadastros. Tente novamente.', code: 'ANIMAL_LIMIT_UNAVAILABLE' });
+  }
+  if (!reservation.allowed) {
+    res.set('Retry-After', String(reservation.retryAfter));
+    return res.status(429).json({
+      error: reservation.daily
+        ? 'Você atingiu o limite de 20 cadastros de animais por dia. Tente novamente após a meia-noite de Brasília.'
+        : 'Você atingiu o limite de 5 cadastros de animais em 5 minutos. Aguarde e tente novamente.',
+      code: 'ANIMAL_CREATION_LIMIT', retryAfter: reservation.retryAfter
+    });
+  }
+  let created = false;
+  try {
+    if (!(await validateUploadedImage(req.file, res))) return;
 
-  if (!(await validateUploadedImage(req.file, res))) return;
-  
-  let imageUrl = null;
-  if (req.file) {
-    try {
-      imageUrl = await uploadToSupabase(req.file);
-    } catch (err) {
-      return res.status(500).json({ error: "Erro ao salvar imagem no Supabase Storage: " + err.message });
+    let imageUrl = null;
+    if (req.file) {
+      try {
+        imageUrl = await uploadToSupabase(req.file);
+      } catch (err) {
+        return res.status(500).json({ error: "Erro ao salvar imagem no Supabase Storage: " + err.message });
+      }
+    }
+
+    // Garante conversão correta para números para o Postgres não recusar
+    const parsedLatitude = latitude ? parseFloat(latitude) : null;
+    const parsedLongitude = longitude ? parseFloat(longitude) : null;
+    const parsedUserId = userId ? parseInt(userId, 10) : null;
+    const sql = `INSERT INTO animals (name, species, breed, health, latitude, longitude, image_url, "userId", urgency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const params = [
+      name || "Sem nome", species, breed, health,
+      parsedLatitude, parsedLongitude, imageUrl, parsedUserId, urgency || 'Estável'
+    ];
+
+    await new Promise((resolve, reject) => db.run(sql, params, error => error ? reject(error) : resolve()));
+    created = true;
+    res.json({ message: "Animal cadastrado com sucesso!", ...req.body, image_url: imageUrl });
+  } catch (error) {
+    console.error('Erro ao cadastrar animal:', { code: error.code || 'ANIMAL_CREATE_FAILED' });
+    res.status(500).json({ error: 'Não foi possível cadastrar o animal. Tente novamente.' });
+  } finally {
+    if (!created) {
+      await releaseAnimalCreation(db, req.mobileUser.id, reservation.reservationId).catch(error => {
+        // Falha conservadora: mantém a vaga contabilizada, sem liberar cota indevidamente.
+        console.error('Erro ao liberar reserva de cadastro:', { code: error.code || 'ANIMAL_LIMIT_RELEASE_FAILED' });
+      });
     }
   }
-
-  // Garante conversão correta para números para o Postgres não recusar
-  const parsedLatitude = latitude ? parseFloat(latitude) : null;
-  const parsedLongitude = longitude ? parseFloat(longitude) : null;
-  const parsedUserId = userId ? parseInt(userId, 10) : null;
-
-  const sql = `INSERT INTO animals (name, species, breed, health, latitude, longitude, image_url, "userId", urgency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  
-  const params = [
-    name || "Sem nome", 
-    species, 
-    breed, 
-    health, 
-    parsedLatitude, 
-    parsedLongitude, 
-    imageUrl, 
-    parsedUserId, 
-    urgency || 'Estável'
-  ];
-
-  db.run(sql, params, function (err) {
-    if (err) {
-      console.error("ERRO AO CADASTRAR ANIMAL NO SUPABASE:", err.message);
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ message: "Animal cadastrado com sucesso!", ...req.body, image_url: imageUrl });
-  });
 });
 
 // Status do animal e recompensa são confirmados na mesma conexão/transação.

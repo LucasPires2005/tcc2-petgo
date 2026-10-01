@@ -62,7 +62,13 @@ async function routeFixture(t, route = 'auth', options = {}) {
     all(sql, params, cb) { record('all', { sql, params }); cb(null, []); },
     run(sql, params, cb) {
       record('run', { sql, params });
+      if (sql.startsWith('DELETE FROM petgo_private.animal_creation_events')) {
+        if (options.releaseError) return cb(options.releaseError);
+        state.creationEvents = (state.creationEvents || []).filter(event => !(event.id === params[0] && String(event.userId) === String(params[1])));
+        return cb(null);
+      }
       if (options.writeError) return cb(options.writeError);
+      if (sql.startsWith('INSERT INTO animals') && options.animalInsertError) return cb(options.animalInsertError);
       if (sql.startsWith('UPDATE animals')) state.rescued = true;
       if (sql.startsWith('UPDATE users SET coins = COALESCE')) state.coins += params[0];
       else if (sql.startsWith('UPDATE users SET coins = ?')) state.coins = params[0];
@@ -96,6 +102,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     '../services/checkout': require('../../services/checkout'),
     '../services/subscriptions': require('../../services/subscriptions'),
     '../services/credentialValidation': require('../../services/credentialValidation'),
+    '../services/animalCreationLimit': require('../../services/animalCreationLimit'),
     '../services/emailConfirmationSettings': { async requireEmailConfirmation() {
       if (options.confirmationDisabled) throw new Error('EMAIL_CONFIRMATION_REQUIRED');
     } },
@@ -174,7 +181,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
       body: method === 'GET' ? undefined : form || JSON.stringify(body),
       signal: AbortSignal.timeout(5000)
     });
-    return { status: response.status, body: response.headers.get('content-type')?.includes('json')
+    return { status: response.status, retryAfter: response.headers.get('retry-after'), body: response.headers.get('content-type')?.includes('json')
       ? await response.json() : await response.text() };
   } };
 }
