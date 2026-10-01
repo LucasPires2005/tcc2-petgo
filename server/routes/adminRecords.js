@@ -16,7 +16,7 @@ function createAdminRecordsRouter({ db, supabaseUrl }) {
 
   router.get('/audit', async (req, res) => {
     const { page = '1', action = '' } = req.query;
-    if (!validPage(page) || typeof action !== 'string' || !['', 'user_ban', 'user_unban', 'animal_delete'].includes(action)) {
+    if (!validPage(page) || typeof action !== 'string' || !['', 'user_ban', 'user_unban', 'animal_delete', 'user_delete'].includes(action)) {
       return res.status(400).json({ error: 'Página ou ação inválida.' });
     }
     try {

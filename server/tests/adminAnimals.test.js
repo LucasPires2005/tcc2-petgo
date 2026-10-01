@@ -66,7 +66,8 @@ test('animais: exclui somente o ID solicitado em uma consulta', async (t) => {
   const f = await fixture(t, { result: { id: 42 } });
   const r = await f.request('/animals/42', 'DELETE');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body, { deletedId: 42 });
+  assert.deepEqual(r.body, { deletedId: 42,
+    storageCleanup: { removed: 0, shared: 0, failed: 0, skipped: 0, status: 'complete' } });
   assert.equal(f.queries.length, 1);
   assert.match(f.queries[0].sql, /DELETE FROM public.animals WHERE id = \?/);
   assert.match(f.queries[0].sql, /INSERT INTO petgo_private.admin_audit_log/);

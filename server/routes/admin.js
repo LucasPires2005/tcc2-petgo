@@ -6,4 +6,4 @@ const { createAdminRouter } = require('./createAdminRouter');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
 });
-module.exports = createAdminRouter({ auth: supabase.auth, db });
+module.exports = createAdminRouter({ auth: supabase.auth, storage: supabase.storage, db });

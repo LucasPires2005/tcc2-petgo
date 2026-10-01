@@ -28,6 +28,7 @@ export default function AnimalsPage() {
   const deleteLock = useRef(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [warning, setWarning] = useState('');
   const [selectedAnimal, setSelectedAnimal] = useState(null);
 
   useEffect(() => {
@@ -55,10 +56,16 @@ export default function AnimalsPage() {
     }
     setSelectedAnimal(null);
     deleteLock.current = true;
-    setDeleting(animal.id); setError(''); setNotice('');
+    setDeleting(animal.id); setError(''); setNotice(''); setWarning('');
     try {
-      await deleteAdminAnimal(accessToken, animal.id, reason.trim());
-      setNotice(`Registro ID ${animal.id} excluído. As imagens permanecem no Storage.`);
+      const result = await deleteAdminAnimal(accessToken, animal.id, reason.trim());
+      if (result.storageCleanup?.status === 'partial') {
+        setWarning(`Registro ID ${animal.id} excluído do aplicativo, mas a limpeza de algumas fotos não foi concluída. Confira o inventário de Arquivos e os logs do servidor.`);
+      } else if (result.storageCleanup?.status === 'complete') {
+        setNotice(`Registro ID ${animal.id} excluído. Limpeza das fotos concluída.${result.storageCleanup.shared ? ' Fotos usadas por outros animais foram preservadas.' : ''}`);
+      } else {
+        setWarning(`Registro ID ${animal.id} excluído. O servidor não confirmou a limpeza das fotos; confira o inventário de Arquivos.`);
+      }
       setAttempt((value) => value + 1);
     } catch (err) {
       if (err.status === 401 || err.status === 403) invalidateAccess(err.message);
@@ -83,6 +90,7 @@ export default function AnimalsPage() {
       <button type="button" className={buttonClass} disabled={busy} onClick={() => { setSearch(''); setFilters({ q: '', page: 1 }); }}>Limpar</button>
     </form>
     {notice && <p role="status" className="mt-5 rounded-lg bg-green-50 p-4 text-green-800">{notice}</p>}
+    {warning && <p role="alert" className="mt-5 rounded-lg bg-amber-50 p-4 text-amber-900">{warning}</p>}
     {error && <p role="alert" className="mt-5 rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}
     {loading && <p role="status" className="mt-6">Carregando animais…</p>}
     {data && <>
@@ -109,9 +117,9 @@ export default function AnimalsPage() {
         </div>
       </nav>
     </>}
-    <p className="mt-8 text-sm text-slate-500">Excluir remove apenas o registro do banco. Não apaga arquivos do Storage nem desfaz moedas concedidas. O app refletirá a exclusão ao consultar novamente os animais.</p>
+    <p className="mt-8 text-sm text-slate-500">Excluir remove o registro e suas fotos do Storage. Fotos usadas por outros animais são preservadas. Não desfaz moedas concedidas. O app refletirá a exclusão ao consultar novamente os animais.</p>
     {selectedAnimal && <ActionReasonModal title="Motivo da Exclusão" destructive
-      description={`Excluir definitivamente o registro "${selectedAnimal.name || 'Sem nome'}" (ID ${selectedAnimal.id})?\nEle deixará de aparecer nas próximas consultas do aplicativo. Não há desfazer no painel. As imagens permanecerão no Storage; contas e moedas não serão alteradas.`}
+      description={`Excluir definitivamente o registro "${selectedAnimal.name || 'Sem nome'}" (ID ${selectedAnimal.id})?\nEle deixará de aparecer nas próximas consultas do aplicativo. Suas fotos serão apagadas do Storage, exceto as compartilhadas com outros animais. Não há desfazer; contas e moedas não serão alteradas.`}
       confirmLabel="Excluir registro" onCancel={() => setSelectedAnimal(null)}
       onConfirm={(reason) => remove(selectedAnimal, reason)} />}
   </section>;

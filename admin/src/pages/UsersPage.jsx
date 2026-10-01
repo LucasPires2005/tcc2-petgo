@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
-import { fetchAdminUsers, setAdminUserBan } from '../lib/api';
+import { deleteAdminUser, fetchAdminUsers, setAdminUserBan } from '../lib/api';
 import ActionReasonModal from '../components/ActionReasonModal';
 
 const plans = { 0: 'Sem plano', 1: 'Amigo', 2: 'Protetor', 3: 'Guardião' };
@@ -18,7 +18,9 @@ export default function UsersPage() {
   const [changing, setChanging] = useState(false);
   const actionLock = useRef(false);
   const [notice, setNotice] = useState('');
+  const [warning, setWarning] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   async function changeBan(user, reason) {
     if (actionLock.current || user.is_admin) return;
@@ -27,10 +29,28 @@ export default function UsersPage() {
       setError('Informe um motivo com 3 a 500 caracteres.'); return;
     }
     setSelectedUser(null);
-    actionLock.current = true; setChanging(true); setError(''); setNotice('');
+    actionLock.current = true; setChanging(true); setError(''); setNotice(''); setWarning('');
     try {
       await setAdminUserBan(accessToken, user.id, banned, reason.trim());
       setNotice(banned ? 'Conta banida. Novas chamadas protegidas serão bloqueadas.' : 'Conta liberada. O usuário deve entrar novamente.');
+      setAttempt((value) => value + 1);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) invalidateAccess(err.message);
+      else setError(`${err.message} Atualize a lista antes de repetir a ação.`);
+    } finally { actionLock.current = false; setChanging(false); }
+  }
+
+  async function removeUser(user, reason) {
+    if (actionLock.current || user.is_admin) return;
+    if (reason.trim().length < 3 || reason.trim().length > 500) {
+      setError('Informe um motivo com 3 a 500 caracteres.'); return;
+    }
+    setUserToDelete(null);
+    actionLock.current = true; setChanging(true); setError(''); setNotice(''); setWarning('');
+    try {
+      const result = await deleteAdminUser(accessToken, user.id, reason.trim());
+      if (result.warning) setWarning(result.warning);
+      else setNotice(`Conta ID ${user.id} excluída. Os animais foram preservados, sem vínculo com a conta removida.`);
       setAttempt((value) => value + 1);
     } catch (err) {
       if (err.status === 401 || err.status === 403) invalidateAccess(err.message);
@@ -84,6 +104,7 @@ export default function UsersPage() {
       </form>
       {loading && <p role="status" className="mt-6 text-slate-500">Carregando usuários…</p>}
       {notice && <p role="status" className="mt-6 rounded-lg bg-green-50 p-4 text-green-800">{notice}</p>}
+      {warning && <p role="alert" className="mt-6 rounded-lg bg-amber-50 p-4 text-amber-900">{warning}</p>}
       {error && <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-red-800">{error} Use Atualizar lista para tentar novamente.</p>}
       {data && <>
         <p aria-live="polite" className="mt-6 text-sm text-slate-500">{data.total.toLocaleString('pt-BR')} usuário(s) encontrado(s).</p>
@@ -101,7 +122,10 @@ export default function UsersPage() {
                   <td className="px-5 py-4 tabular-nums">{user.coins == null ? '—' : Number(user.coins).toLocaleString('pt-BR')}</td>
                   <td className="px-5 py-4">
                     <p className="mb-2">{user.is_admin ? 'ADM protegido' : user.banned ? 'Banido' : 'Liberado'}</p>
-                    {!user.is_admin && <button className={buttonClass} disabled={loading || changing} onClick={() => setSelectedUser(user)}>{user.banned ? 'Desbanir' : 'Banir'}</button>}
+                    {!user.is_admin && <div className="flex flex-wrap gap-2">
+                      <button className={buttonClass} disabled={loading || changing} onClick={() => setSelectedUser(user)}>{user.banned ? 'Desbanir' : 'Banir'}</button>
+                      <button className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50" disabled={loading || changing} onClick={() => setUserToDelete(user)}>Excluir conta</button>
+                    </div>}
                   </td>
                 </tr>
               ))}</tbody>
@@ -116,12 +140,16 @@ export default function UsersPage() {
           </div>
         </nav>
       </>}
-      <p className="mt-8 text-sm text-slate-500">O plano exibido não confirma pagamento. Banimento bloqueia o acesso à API mobile, sem excluir dados. Contas ADM são protegidas. Exclusão de usuários não está incluída nesta etapa.</p>
+      <p className="mt-8 text-sm text-slate-500">O plano exibido não confirma pagamento. Banir bloqueia o acesso sem excluir dados. Excluir conta remove o perfil e o acesso definitivamente, preservando os animais no mapa. Contas ADM são protegidas.</p>
       {selectedUser && <ActionReasonModal
         title={selectedUser.banned ? 'Motivo do Desbanimento' : 'Motivo do Banimento'}
         description={`${selectedUser.banned ? 'Desbanir' : 'Banir'} ${selectedUser.name || selectedUser.email} (ID ${selectedUser.id})?\nAs sessões anteriores serão revogadas. Não exclui contas, animais ou moedas.`}
         confirmLabel={selectedUser.banned ? 'Confirmar desbanimento' : 'Confirmar banimento'}
         onCancel={() => setSelectedUser(null)} onConfirm={(reason) => changeBan(selectedUser, reason)} />}
+      {userToDelete && <ActionReasonModal title="Motivo da Exclusão da Conta" destructive
+        description={`Excluir definitivamente ${userToDelete.name || userToDelete.email} (ID ${userToDelete.id})?\nO perfil, o acesso, o saldo e os benefícios dessa conta serão removidos. Os animais e suas fotos serão preservados; o vínculo e o contato associados à conta serão removidos. Não há desfazer.`}
+        confirmLabel="Excluir conta definitivamente" onCancel={() => setUserToDelete(null)}
+        onConfirm={(reason) => removeUser(userToDelete, reason)} />}
     </section>
   );
 }

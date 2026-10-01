@@ -2,11 +2,14 @@ const express = require('express');
 const { createRequireAdmin } = require('../middleware/requireAdmin');
 const { effectiveTierSql } = require('../services/subscriptions');
 const { createAdminRecordsRouter, reasonFrom } = require('./adminRecords');
+const { createAdminUserDeletionRouter } = require('./adminUserDeletion');
+const { cleanupAnimalPhotos } = require('../services/animalStorageCleanup');
 
-function createAdminRouter({ auth, db, supabaseUrl = process.env.SUPABASE_URL, env = process.env }) {
+function createAdminRouter({ auth, db, storage, supabaseUrl = process.env.SUPABASE_URL, env = process.env }) {
   const router = express.Router();
   router.use(createRequireAdmin({ auth, db }));
   router.use(createAdminRecordsRouter({ db, supabaseUrl }));
+  router.use(createAdminUserDeletionRouter({ auth, db }));
 
   router.get('/me', (req, res) => res.json({ admin: req.admin }));
 
@@ -89,7 +92,7 @@ function createAdminRouter({ auth, db, supabaseUrl = process.env.SUPABASE_URL, e
     }
     try {
       // DELETE RETURNING evita uma consulta prévia sujeita a corrida.
-      // Não remove arquivos do Storage nem modifica usuários ou moedas.
+      // Arquivos só são removidos após confirmar exclusão + auditoria no banco.
       const animal = await new Promise((resolve, reject) => db.get(
         `WITH deleted AS (
           DELETE FROM public.animals WHERE id = ? RETURNING id, name, image_url, rescue_image_url
@@ -97,12 +100,13 @@ function createAdminRouter({ auth, db, supabaseUrl = process.env.SUPABASE_URL, e
           INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
           SELECT ?::uuid, 'animal_delete', id::text, ?, jsonb_build_object('name', name,
             'image_url', image_url, 'rescue_image_url', rescue_image_url) FROM deleted RETURNING id
-        ) SELECT deleted.id FROM deleted CROSS JOIN logged`, [req.params.id, req.admin.id, reason],
+        ) SELECT deleted.id, deleted.image_url, deleted.rescue_image_url FROM deleted CROSS JOIN logged`, [req.params.id, req.admin.id, reason],
         (error, row) => error ? reject(error) : resolve(row)
       ));
       if (!animal) return res.status(404).json({ error: 'Animal não encontrado. Atualize a lista.' });
       console.info('Registro de animal excluído pelo admin:', { adminId: req.admin.id, animalId: animal.id });
-      return res.json({ deletedId: animal.id });
+      const storageCleanup = await cleanupAnimalPhotos({ animal, db, storage, supabaseUrl });
+      return res.json({ deletedId: animal.id, storageCleanup });
     } catch (error) {
       console.error('Falha na exclusão administrativa:', { code: error.code || 'ADMIN_DELETE_FAILED' });
       return res.status(error.code === '23503' ? 409 : 503).json({ error: error.code === '23503'

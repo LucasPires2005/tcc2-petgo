@@ -46,6 +46,10 @@ export function deleteAdminAnimal(accessToken, id, reason) {
   return adminGet(`/animals/${encodeURIComponent(id)}`, accessToken, undefined, 'DELETE', { reason });
 }
 
+export function deleteAdminUser(accessToken, id, reason) {
+  return adminGet(`/users/${encodeURIComponent(id)}`, accessToken, undefined, 'DELETE', { reason });
+}
+
 export function setAdminUserBan(accessToken, id, banned, reason) {
   return adminGet(`/users/${encodeURIComponent(id)}/ban`, accessToken, undefined, 'PUT', { banned, reason });
 }

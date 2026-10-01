@@ -3,7 +3,7 @@ import { useAdminAuth } from '../context/AdminAuthContext';
 import { fetchAdminRecords } from '../lib/api';
 import { formatDateTime, localTimeZone } from '../lib/dateTime.mjs';
 
-const actions = { user_ban: 'Banimento', user_unban: 'Desbanimento', animal_delete: 'Exclusão de animal' };
+const actions = { user_ban: 'Banimento', user_unban: 'Desbanimento', animal_delete: 'Exclusão de animal', user_delete: 'Exclusão de conta' };
 const button = 'rounded-lg border border-primary bg-white px-4 py-2 text-primary hover:bg-surface disabled:opacity-50';
 
 export default function RecordsPage({ kind }) {
