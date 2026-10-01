@@ -1,14 +1,11 @@
 import { colors } from '../theme/colors';
-import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, Modal, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import React, { useContext } from 'react';
+import { View, Text, StyleSheet, FlatList, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
-import AnimalDeletionForm from '../components/AnimalDeletionForm';
-import { isAnimalAuthor } from '../services/animalDeletion';
 
 export default function RescuedScreen() {
-  const { animals, user } = useContext(AuthContext);
-  const [selected, setSelected] = useState(null);
+  const { animals } = useContext(AuthContext);
   const rescuedAnimals = animals.filter(a => a.status === 1);
 
   return (
@@ -25,21 +22,11 @@ export default function RescuedScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardInfo}><Text style={styles.animalName}>{item.name}</Text><Text style={styles.infoText}>{item.species} • Resgatado por {item.rescuer_name || 'Herói'}</Text>
-              {isAnimalAuthor(item, user?.id) && <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', marginTop: 8 }} onPress={() => setSelected(item)}>
-                <Text style={{ color: colors.danger, fontWeight: '600' }}>Excluir meu registro</Text>
-              </TouchableOpacity>}
             </View>
             <Ionicons name="heart" size={24} color={colors.action} />
           </View>
         )}
       />
-      <Modal visible={Boolean(selected)} transparent animationType="slide" onRequestClose={() => {}}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View style={{ backgroundColor: colors.background, borderRadius: 24, padding: 24, maxHeight: '85%' }}>
-            {selected && <AnimalDeletionForm key={selected.id} animal={selected} onCancel={() => setSelected(null)} onDeleted={() => setSelected(null)} />}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </SafeAreaView>
   );
 }

@@ -10,6 +10,17 @@ function load(fetch) {
     mobileFetch: fetch, API_BASE_URL: 'https://petgo.test', setTimeout, clearTimeout, AbortController
   });
 }
+
+test('mobile: exclusão pelo autor fica somente no detalhe do mapa, nunca nas listagens', () => {
+  for (const screen of ['NearbyScreen.js', 'RescuedScreen.js']) {
+    const code = fs.readFileSync(path.resolve(__dirname, '../../app/screens', screen), 'utf8');
+    assert.doesNotMatch(code, /AnimalDeletionForm|isAnimalAuthor|deleteOwnAnimal|Excluir meu registro/, screen);
+  }
+  const map = fs.readFileSync(path.resolve(__dirname, '../../app/screens/MapScreen.js'), 'utf8');
+  assert.match(map, /isAnimalAuthor\(selectedAnimal, user\?\.id\)\s*&&/);
+  assert.match(map, /<AnimalDeletionForm\s+animal=\{selectedAnimal\}/);
+  assert.match(map, /Excluir meu registro/);
+});
 test('mobile: botão depende de creator_id, nunca de quem resgatou', () => {
   const { isAnimalAuthor } = load();
   assert.equal(isAnimalAuthor({ creator_id: 7, userId: 8 }, 7), true);
