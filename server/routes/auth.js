@@ -275,8 +275,11 @@ router.post('/login', async (req, res) => {
 
 router.get('/update-status/:id', (req, res) => {
   db.get(
-    `SELECT ${PROFILE_COLUMNS} FROM users WHERE id = ?`,
-    [req.params.id],
+    `SELECT ${PROFILE_COLUMNS},
+            (SELECT COUNT(*)::integer FROM animals
+             WHERE "userId" = users.id AND status = 1) AS salvos
+     FROM users WHERE id = ?`,
+    [req.mobileUser.id],
     (err, user) => {
       if (err) return res.status(503).json({ error: 'Não foi possível consultar o perfil.' });
       if (user) res.json(profileWithValidity(user));

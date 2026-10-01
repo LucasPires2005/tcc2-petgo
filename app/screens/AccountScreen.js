@@ -315,7 +315,7 @@ export default function AccountScreen({ navigation }) {
               <View style={styles.statBox}>
                 <Ionicons name="checkmark-done-circle" size={18} color={colors.success} />
                 <Text style={styles.statText}>
-                {myRescues.filter(animal => animal.status === 1).length} Salvos
+                {user?.salvos ?? '—'} Salvos
                 </Text>
               </View>
             </View>

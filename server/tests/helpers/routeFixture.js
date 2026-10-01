@@ -48,6 +48,11 @@ async function routeFixture(t, route = 'auth', options = {}) {
       if (sql.trim() === 'SELECT id FROM users WHERE LOWER(TRIM(email)) = ?') {
         return cb(null, options.duplicate ? user : null);
       }
+      if (sql.includes('AS salvos')) {
+        if (options.profileError) return cb(options.profileError);
+        const salvos = (options.animals || []).filter(animal => String(animal.userId) === String(params[0]) && animal.status === 1).length;
+        return cb(null, options.missingUser ? null : { ...user, coins: state.coins, salvos });
+      }
       cb(null, options.missingUser ? null : { ...(sql.includes('AS plan_tier')
         ? require('../../services/subscriptions').profileWithValidity(user) : user), coins: state.coins });
     },
