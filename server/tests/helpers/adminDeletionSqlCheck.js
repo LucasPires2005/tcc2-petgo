@@ -36,6 +36,10 @@ test('migração 007 em PostgreSQL isolado (sem serviços reais)', async t => {
       (3, 3, 'Legado', 0, 'legado.jpg', NULL, 'Legado', '333'),
       (4, 4, 'Rollback', 1, 'rollback.jpg', NULL, 'Pessoa 4', '444');
     INSERT INTO petgo_private.user_access VALUES (2), (3), (4);
+    ALTER TABLE public.users ADD COLUMN name text, ADD COLUMN email text;
+    ALTER TABLE public.animals ADD COLUMN species text, ADD COLUMN health text;
+    ALTER TABLE petgo_private.user_access ADD COLUMN banned boolean DEFAULT false,
+      ADD COLUMN version integer DEFAULT 0, ADD COLUMN updated_at timestamptz DEFAULT now();
   `);
   await db.exec(readFileSync(resolve(__dirname, '../../sql/005_admin_audit.sql'), 'utf8'));
   const migration = readFileSync(resolve(__dirname, '../../sql/007_admin_deletion.sql'), 'utf8');
@@ -58,7 +62,7 @@ test('migração 007 em PostgreSQL isolado (sem serviços reais)', async t => {
     assert.deepEqual((await db.query('SELECT * FROM petgo_private.user_access WHERE user_id = 2')).rows, []);
     assert.deepEqual((await db.query('SELECT * FROM public.animals WHERE id = 2')).rows[0], {
       id: 2, userId: null, name: 'Animal preservado', status: 1, image_url: 'foto.jpg', rescue_image_url: 'resgate.jpg',
-      rescuer_name: 'Conta Removida', rescuer_contact: null
+      rescuer_name: 'Conta Removida', rescuer_contact: null, species: null, health: null
     });
     assert.equal((await db.query('SELECT "userId" FROM public.animals WHERE id = 1')).rows[0].userId, 1);
   });
@@ -98,7 +102,7 @@ test('migração 007 em PostgreSQL isolado (sem serviços reais)', async t => {
     const express = require('express');
     const { createAdminRouter } = require('../../routes/createAdminRouter');
     await db.exec(`INSERT INTO auth.users VALUES ('55555555-5555-4555-8555-555555555555');
-      INSERT INTO public.users VALUES (5, '55555555-5555-4555-8555-555555555555');
+      INSERT INTO public.users (id, auth_user_id, name, email) VALUES (5, '55555555-5555-4555-8555-555555555555', 'Pessoa 5', 'cinco@example.test');
       INSERT INTO public.animals (id, "userId", name, rescuer_contact) VALUES (5, 5, 'Rota', '555')`);
     const adapter = { get(sql, params, callback) {
       let i = 0;
@@ -125,6 +129,33 @@ test('migração 007 em PostgreSQL isolado (sem serviços reais)', async t => {
       assert.deepEqual(await response.json(), { deletedId: 5 });
       assert.equal((await db.query('SELECT "userId" FROM public.animals WHERE id = 5')).rows[0].userId, null);
       assert.equal((await db.query("SELECT reason FROM petgo_private.admin_audit_log WHERE action = 'user_delete' AND target_id = '5'")).rows[0].reason, 'Validação integrada');
+      assert.deepEqual((await db.query("SELECT details FROM petgo_private.admin_audit_log WHERE action = 'user_delete' AND target_id = '5'")).rows[0].details,
+        { name: 'Pessoa 5', email: 'cinco@example.test' });
+      const auditResponse = await fetch(`http://127.0.0.1:${server.address().port}/admin/audit`, { headers: options.headers });
+      assert.equal(auditResponse.status, 200);
+      const entries = (await auditResponse.json()).entries;
+      const deletedEntry = entries.find(entry => entry.target_id === '5');
+      assert.equal(deletedEntry.current_target, null);
+      assert.equal(deletedEntry.details.name, 'Pessoa 5');
+
+      await db.exec("UPDATE public.users SET name = 'Nome antigo', email = 'quatro@example.test' WHERE id = 4");
+      const banResponse = await fetch(`http://127.0.0.1:${server.address().port}/admin/users/4/ban`, {
+        ...options, method: 'PUT', body: JSON.stringify({ banned: true, reason: 'Teste auditoria' })
+      });
+      assert.equal(banResponse.status, 200);
+      await db.exec("UPDATE public.users SET name = 'Nome atual' WHERE id = 4");
+      const history = await fetch(`http://127.0.0.1:${server.address().port}/admin/audit?action=user_ban`, { headers: options.headers });
+      const banEntry = (await history.json()).entries[0];
+      assert.equal(banEntry.details.name, 'Nome antigo');
+      assert.equal(banEntry.current_target.name, 'Nome atual');
+
+      await db.exec("UPDATE public.animals SET species = 'Gato', health = 'Em recuperação', image_url = NULL, rescue_image_url = NULL WHERE id = 2");
+      const animalResponse = await fetch(`http://127.0.0.1:${server.address().port}/admin/animals/2`, options);
+      assert.equal(animalResponse.status, 200);
+      const animalDetails = (await db.query("SELECT details FROM petgo_private.admin_audit_log WHERE action = 'animal_delete' AND target_id = '2'")).rows[0].details;
+      assert.equal(animalDetails.species, 'Gato');
+      assert.equal(animalDetails.health, 'Em recuperação');
+      assert.equal(animalDetails.status, 1);
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
 });

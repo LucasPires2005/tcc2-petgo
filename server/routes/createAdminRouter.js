@@ -39,7 +39,8 @@ function createAdminRouter({ auth, db, storage, supabaseUrl = process.env.SUPABA
          RETURNING user_id, banned), logged AS (
            INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
            SELECT ?::uuid, CASE WHEN banned THEN 'user_ban' ELSE 'user_unban' END,
-             user_id::text, ?, jsonb_build_object('banned', banned) FROM changed RETURNING id
+             user_id::text, ?, jsonb_build_object('banned', banned, 'name', u.name, 'email', u.email)
+             FROM changed JOIN public.users u ON u.id = changed.user_id RETURNING id
          ) SELECT changed.* FROM changed CROSS JOIN logged`,
         [banned, id, req.admin.id, reason], (error, result) => error ? reject(error) : resolve(result)
       ));
@@ -95,10 +96,11 @@ function createAdminRouter({ auth, db, storage, supabaseUrl = process.env.SUPABA
       // Arquivos só são removidos após confirmar exclusão + auditoria no banco.
       const animal = await new Promise((resolve, reject) => db.get(
         `WITH deleted AS (
-          DELETE FROM public.animals WHERE id = ? RETURNING id, name, image_url, rescue_image_url
+          DELETE FROM public.animals WHERE id = ? RETURNING id, name, species, health, status, image_url, rescue_image_url
         ), logged AS (
           INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
           SELECT ?::uuid, 'animal_delete', id::text, ?, jsonb_build_object('name', name,
+            'species', species, 'health', health, 'status', status,
             'image_url', image_url, 'rescue_image_url', rescue_image_url) FROM deleted RETURNING id
         ) SELECT deleted.id, deleted.image_url, deleted.rescue_image_url FROM deleted CROSS JOIN logged`, [req.params.id, req.admin.id, reason],
         (error, row) => error ? reject(error) : resolve(row)

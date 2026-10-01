@@ -15,7 +15,7 @@ function createAdminUserDeletionRouter({ auth, db }) {
       return res.status(400).json({ error: 'Informe um usuário válido e um motivo com 3 a 500 caracteres.' });
     }
     try {
-      const user = await get(`SELECT u.id, u.auth_user_id,
+      const user = await get(`SELECT u.id, u.auth_user_id, u.name, u.email,
         EXISTS (SELECT 1 FROM petgo_private.admin_users a
           WHERE a.auth_user_id::text = u.auth_user_id::text) AS is_admin
         FROM public.users u WHERE u.id = ?`, [id]);
@@ -47,10 +47,10 @@ function createAdminUserDeletionRouter({ auth, db }) {
       if (authMissing) {
         // Conta legada ou Auth já ausente: trigger + exclusão + auditoria atômicos.
         const deleted = await get(`WITH deleted AS (
-          DELETE FROM public.users WHERE id = ? AND auth_user_id::text IS NOT DISTINCT FROM ?::text RETURNING id
+          DELETE FROM public.users WHERE id = ? AND auth_user_id::text IS NOT DISTINCT FROM ?::text RETURNING id, name, email
         ), logged AS (
-          INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason)
-          SELECT ?::uuid, 'user_delete', id::text, ? FROM deleted RETURNING id
+          INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
+          SELECT ?::uuid, 'user_delete', id::text, ?, jsonb_build_object('name', name, 'email', email) FROM deleted RETURNING id
         ) SELECT deleted.id FROM deleted CROSS JOIN logged`, [id, user.auth_user_id, req.admin.id, reason]);
         if (!deleted) return res.status(409).json({ error: 'A conta mudou ou já foi excluída. Atualize a lista.' });
       } else {
@@ -58,8 +58,9 @@ function createAdminUserDeletionRouter({ auth, db }) {
         const remaining = await get('SELECT id FROM public.users WHERE id = ?', [id]);
         if (remaining) throw new Error('PROFILE_DELETE_NOT_CONFIRMED');
         try {
-          await get(`INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason)
-            VALUES (?::uuid, 'user_delete', ?, ?) RETURNING id`, [req.admin.id, String(id), reason]);
+          await get(`INSERT INTO petgo_private.admin_audit_log (actor_id, action, target_id, reason, details)
+            VALUES (?::uuid, 'user_delete', ?, ?, ?::jsonb) RETURNING id`,
+          [req.admin.id, String(id), reason, JSON.stringify({ name: user.name ?? null, email: user.email ?? null })]);
         } catch (error) {
           // Auth é um serviço externo: não fingir rollback de uma conta já removida.
           console.error('Conta excluída; auditoria indisponível:', { adminId: req.admin.id, userId: id, code: error.code || 'AUDIT_FAILED' });

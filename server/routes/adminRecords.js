@@ -23,9 +23,18 @@ function createAdminRecordsRouter({ db, supabaseUrl }) {
       const result = await get(`WITH matched AS (
         SELECT id::text, actor_id, action, target_id, reason, details, created_at
         FROM petgo_private.admin_audit_log WHERE (?::text = '' OR action = ?)
-      ), page_rows AS (SELECT * FROM matched ORDER BY created_at DESC, id::bigint DESC LIMIT 20 OFFSET ?)
+      ), page_rows AS (SELECT * FROM matched ORDER BY created_at DESC, id::bigint DESC LIMIT 20 OFFSET ?),
+      enriched AS (
+        SELECT p.*, CASE
+          WHEN u.id IS NOT NULL THEN jsonb_build_object('name', u.name, 'email', u.email)
+          WHEN a.id IS NOT NULL THEN jsonb_build_object('name', a.name, 'species', a.species, 'health', a.health, 'status', a.status)
+          ELSE NULL END AS current_target
+        FROM page_rows p
+        LEFT JOIN public.users u ON p.action IN ('user_ban', 'user_unban', 'user_delete') AND u.id::text = p.target_id
+        LEFT JOIN public.animals a ON p.action = 'animal_delete' AND a.id::text = p.target_id
+      )
       SELECT (SELECT count(*) FROM matched) AS total,
-        COALESCE((SELECT json_agg(p ORDER BY p.created_at DESC, p.id::bigint DESC) FROM page_rows p), '[]'::json) AS entries`,
+        COALESCE((SELECT json_agg(p ORDER BY p.created_at DESC, p.id::bigint DESC) FROM enriched p), '[]'::json) AS entries`,
       [action, action, (Number(page) - 1) * 20]);
       const total = Number(result?.total);
       if (!Number.isSafeInteger(total) || total < 0 || !Array.isArray(result?.entries)) throw new Error('Invalid audit');

@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .admin-card { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
+  .admin-toolbar { @apply admin-card mt-6 flex flex-wrap items-end gap-3 p-5; }
+  .admin-input { @apply mt-2 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-ink placeholder:text-slate-400; }
+  .admin-button { @apply inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50; }
+  .admin-button-primary { @apply admin-button border-brand-700 bg-brand-700 text-white hover:border-brand-600 hover:bg-brand-600; }
+  .admin-button-danger { @apply admin-button border-red-200 text-red-700 hover:bg-red-50; }
+  .admin-note { @apply mt-8 border-t border-slate-200 pt-5 text-sm leading-relaxed text-slate-500; }
+}
+
 @layer base {
   body {
     @apply m-0 min-w-80 bg-white font-sans text-ink antialiased;

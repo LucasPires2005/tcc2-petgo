@@ -3,6 +3,7 @@ import { useAdminAuth } from '../context/AdminAuthContext';
 import { fetchAdminSummary } from '../lib/api';
 import UpdatedAt from '../components/UpdatedAt';
 import SightengineStatus from '../components/SightengineStatus';
+import EmptyState from '../components/EmptyState';
 
 const numberFormat = new Intl.NumberFormat('pt-BR');
 
@@ -44,7 +45,7 @@ export default function DashboardPage() {
         <button
           onClick={() => setAttempt((value) => value + 1)}
           disabled={loading}
-          className="rounded-xl bg-brand-700 px-5 py-3 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-wait disabled:opacity-50"
+          className="admin-button-primary"
         >
           {loading ? 'Carregando…' : 'Atualizar contagens'}
         </button>
@@ -63,7 +64,7 @@ export default function DashboardPage() {
           { field: 'users', title: 'Usuários', detail: 'Perfis cadastrados no PetGo', color: 'text-brand-700' },
           { field: 'animals', title: 'Animais', detail: 'Todos os registros, incluindo resgatados', color: 'text-primary' }
         ].map(({ field, title, detail, color }) => (
-          <div key={field} className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div key={field} className="admin-card p-6 sm:p-8">
             <dt className="font-medium text-slate-600">{title}</dt>
             <dd className={`mt-4 text-5xl font-semibold tabular-nums ${color}`}>
               {summary ? numberFormat.format(summary[field]) : <span aria-label="Contagem ainda indisponível">—</span>}
@@ -74,7 +75,7 @@ export default function DashboardPage() {
       </dl>
       {summary && <UpdatedAt value={summary.updatedAt} />}
       {summary?.users === 0 && summary?.animals === 0 && (
-        <p className="mt-4 rounded-xl bg-white p-4 text-slate-600">Ainda não há usuários ou animais cadastrados no aplicativo.</p>
+        <EmptyState title="Tudo pronto para os primeiros registros">Quando usuários e animais forem cadastrados, os totais aparecerão aqui.</EmptyState>
       )}
       <SightengineStatus />
     </section>

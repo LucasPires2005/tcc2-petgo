@@ -11,7 +11,7 @@ const photo = name => `${supabaseUrl}/storage/v1/object/public/animals/${name}`;
 
 async function fixture(t, options = {}) {
   const calls = [];
-  const initial = options.user === undefined ? { id: 7, auth_user_id: targetAuth, is_admin: false } : options.user;
+  const initial = options.user === undefined ? { id: 7, auth_user_id: targetAuth, is_admin: false, name: 'Pessoa teste', email: 'pessoa@example.test' } : options.user;
   let user = initial;
   let animal = options.animal === undefined ? { id: 8, image_url: photo('first.jpg'), rescue_image_url: photo('last.jpg') } : options.animal;
   const db = {
@@ -101,7 +101,8 @@ test('exclusão usa UUID do banco, hard delete e ator do token; não toca fotos'
   const result = await f.request('/users/7', { reason: ' Revisão ', auth_user_id: 'forjado', actor_id: 'forjado' });
   assert.deepEqual(result, { status: 200, body: { deletedId: 7 } });
   assert.deepEqual(f.calls.find(call => call.type === 'authDelete'), { type: 'authDelete', id: targetAuth, soft: false });
-  assert.deepEqual(f.calls.at(-1).params, [actor, '7', 'Revisão']);
+  assert.deepEqual(f.calls.at(-1).params.slice(0, 3), [actor, '7', 'Revisão']);
+  assert.deepEqual(JSON.parse(f.calls.at(-1).params[3]), { name: 'Pessoa teste', email: 'pessoa@example.test' });
   assert.equal(f.user, null);
   assert.ok(!f.calls.some(call => call.type === 'storage' || /DELETE FROM public.animals/.test(call.sql || '')));
   assert.equal((await f.request()).status, 404);

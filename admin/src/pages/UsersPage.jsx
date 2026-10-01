@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { deleteAdminUser, fetchAdminUsers, setAdminUserBan } from '../lib/api';
 import ActionReasonModal from '../components/ActionReasonModal';
+import EmptyState from '../components/EmptyState';
 
 const plans = { 0: 'Sem plano', 1: 'Amigo', 2: 'Protetor', 3: 'Guardião' };
-const buttonClass = 'rounded-lg border border-primary bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-surface disabled:opacity-50';
+const buttonClass = 'admin-button';
 
 export default function UsersPage() {
   const { accessToken, invalidateAccess } = useAdminAuth();
@@ -80,24 +81,25 @@ export default function UsersPage() {
     <section aria-labelledby="users-title" aria-busy={loading}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 id="users-title" className="text-3xl font-semibold tracking-tight">Usuários</h1>
+          <p className="text-sm font-medium text-brand-700">Gestão da comunidade</p>
+          <h1 id="users-title" className="mt-2 text-3xl font-semibold tracking-tight">Usuários</h1>
           <p className="mt-3 text-slate-600">Consulte os perfis e o plano registrado no PetGo.</p>
         </div>
         <button disabled={loading} onClick={() => setAttempt((value) => value + 1)} className={buttonClass}>Atualizar lista</button>
       </div>
-      <form className="mt-8 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-5" onSubmit={(event) => {
+      <form className="admin-toolbar" onSubmit={(event) => {
         event.preventDefault(); setFilters({ q: search.trim(), plan, page: 1 });
       }}>
-        <label className="min-w-0 flex-1 text-sm font-medium">Nome ou e-mail
-          <input type="search" maxLength={100} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar usuário" className="mt-2 block w-full rounded-lg border border-slate-300 p-3" />
+        <label className="min-w-0 flex-1 basis-48 text-sm font-medium">Nome ou e-mail
+          <input type="search" maxLength={100} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar usuário" className="admin-input" />
         </label>
         <label className="text-sm font-medium">Plano
-          <select value={plan} onChange={(event) => setPlan(event.target.value)} className="mt-2 block rounded-lg border border-slate-300 bg-white p-3">
+          <select value={plan} onChange={(event) => setPlan(event.target.value)} className="admin-input">
             <option value="">Todos os planos</option>
             {Object.entries(plans).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <button disabled={loading} className="rounded-lg bg-brand-700 px-5 py-3 text-sm font-medium text-white disabled:opacity-50">Buscar</button>
+        <button disabled={loading} className="admin-button-primary">Buscar</button>
         <button type="button" disabled={loading} className={buttonClass} onClick={() => {
           setSearch(''); setPlan(''); setFilters({ q: '', plan: '', page: 1 });
         }}>Limpar</button>
@@ -108,8 +110,8 @@ export default function UsersPage() {
       {error && <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-red-800">{error} Use Atualizar lista para tentar novamente.</p>}
       {data && <>
         <p aria-live="polite" className="mt-6 text-sm text-slate-500">{data.total.toLocaleString('pt-BR')} usuário(s) encontrado(s).</p>
-        {data.users.length === 0 ? <p className="mt-4 rounded-xl border bg-white p-8">Nenhum usuário encontrado para esta consulta.</p> : (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        {data.users.length === 0 ? <EmptyState title="Nenhum usuário encontrado">Tente outro nome ou e-mail, ou limpe os filtros para consultar todos os perfis.</EmptyState> : (
+          <div className="admin-card mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">Usuários e planos registrados</caption>
               <thead className="bg-slate-100 text-slate-600"><tr>{['ID', 'Nome', 'E-mail', 'Plano', 'PetCoins', 'Acesso'].map((label) => <th key={label} scope="col" className="px-5 py-4">{label}</th>)}</tr></thead>
@@ -121,10 +123,10 @@ export default function UsersPage() {
                   <td className="whitespace-nowrap px-5 py-4"><span className="rounded-full bg-brand-50 px-3 py-1 text-brand-700">{plans[user.plan_tier ?? 0] || 'Não reconhecido'}</span></td>
                   <td className="px-5 py-4 tabular-nums">{user.coins == null ? '—' : Number(user.coins).toLocaleString('pt-BR')}</td>
                   <td className="px-5 py-4">
-                    <p className="mb-2">{user.is_admin ? 'ADM protegido' : user.banned ? 'Banido' : 'Liberado'}</p>
+                    <p className={`mb-3 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${user.is_admin ? 'bg-surface text-primary' : user.banned ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-800'}`}>{user.is_admin ? 'ADM protegido' : user.banned ? 'Banido' : 'Liberado'}</p>
                     {!user.is_admin && <div className="flex flex-wrap gap-2">
                       <button className={buttonClass} disabled={loading || changing} onClick={() => setSelectedUser(user)}>{user.banned ? 'Desbanir' : 'Banir'}</button>
-                      <button className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 disabled:opacity-50" disabled={loading || changing} onClick={() => setUserToDelete(user)}>Excluir conta</button>
+                      <button className="admin-button-danger" disabled={loading || changing} onClick={() => setUserToDelete(user)}>Excluir conta</button>
                     </div>}
                   </td>
                 </tr>
@@ -140,7 +142,7 @@ export default function UsersPage() {
           </div>
         </nav>
       </>}
-      <p className="mt-8 text-sm text-slate-500">O plano exibido não confirma pagamento. Banir bloqueia o acesso sem excluir dados. Excluir conta remove o perfil e o acesso definitivamente, preservando os animais no mapa. Contas ADM são protegidas.</p>
+      <p className="admin-note">O plano exibido não confirma pagamento. Banir bloqueia o acesso sem excluir dados. Excluir conta remove o perfil e o acesso definitivamente, preservando os animais no mapa. Contas ADM são protegidas.</p>
       {selectedUser && <ActionReasonModal
         title={selectedUser.banned ? 'Motivo do Desbanimento' : 'Motivo do Banimento'}
         description={`${selectedUser.banned ? 'Desbanir' : 'Banir'} ${selectedUser.name || selectedUser.email} (ID ${selectedUser.id})?\nAs sessões anteriores serão revogadas. Não exclui contas, animais ou moedas.`}
