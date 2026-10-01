@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
@@ -12,13 +13,13 @@ export default function PhotoSourceOptions({ onSelect, onCancel }) {
       <Text style={styles.label}>Escolher da Galeria</Text>
     </TouchableOpacity>
     <TouchableOpacity accessibilityRole="button" style={styles.option} onPress={onCancel}>
-      <Text style={styles.label}>Cancelar</Text>
+      <Text style={[styles.label, { color: colors.danger }]}>Cancelar</Text>
     </TouchableOpacity>
   </View>;
 }
 const styles = StyleSheet.create({
-  menu: { backgroundColor: '#FFF', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 12, padding: 8, marginBottom: 15 },
-  title: { color: '#334155', textAlign: 'center', padding: 8, fontWeight: 'bold' },
+  menu: { backgroundColor: colors.background, borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 12, padding: 8, marginBottom: 15 },
+  title: { color: colors.primary, textAlign: 'center', padding: 8, fontWeight: 'bold' },
   option: { minHeight: 44, justifyContent: 'center', alignItems: 'center', padding: 10 },
-  label: { color: '#245B91', fontWeight: '600' }
+  label: { color: colors.primary, fontWeight: '600' }
 });

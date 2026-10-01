@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
 import React, { useEffect, useState, useContext, useRef } from 'react';
@@ -331,7 +332,7 @@ export default function MapScreen() {
   });
 
   if (locationLoading) {
-    return <View style={styles.locationState}><ActivityIndicator size="large" color="#4A90E2" /></View>;
+    return <View style={styles.locationState}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
 
   if (locationError || !location) {
@@ -381,7 +382,7 @@ export default function MapScreen() {
       </View>
 
       <TouchableOpacity 
-        style={[styles.addButton, { backgroundColor: selectedLocation ? '#2ECC71' : '#4A90E2' }]} 
+        style={[styles.addButton, { backgroundColor: selectedLocation ? colors.success : colors.primary }]}
         onPress={() => selectedLocation ? setModalVisible(true) : Alert.alert('Dica', 'Segure no mapa para marcar o local.')}
       >
         <Text style={styles.addButtonText}>{selectedLocation ? '✅ Confirmar Local' : '+ Adicionar Animal'}</Text>
@@ -389,8 +390,8 @@ export default function MapScreen() {
       {selectedLocation && !modalVisible && <TouchableOpacity
         accessibilityRole="button" accessibilityLabel="Cancelar seleção do local"
         style={styles.clearLocationButton} onPress={closeAnimalForm}>
-        <Ionicons name="close" size={20} color="#334155" />
-        <Text style={{ color: '#334155', fontWeight: 'bold' }}>Cancelar seleção</Text>
+        <Ionicons name="close" size={20} color={colors.text} />
+        <Text style={{ color: colors.danger, fontWeight: 'bold' }}>Cancelar seleção</Text>
       </TouchableOpacity>}
 
       {/* Drawer de Detalhes do Animal */}
@@ -427,13 +428,13 @@ export default function MapScreen() {
                   />
                    
                   <View style={styles.infoRow}>
-                    <View style={styles.infoBadge}><Ionicons name="paw" size={16} color="#4A90E2" /><Text style={styles.infoBadgeText}>{selectedAnimal?.species}</Text></View>
+                    <View style={styles.infoBadge}><Ionicons name="paw" size={16} color={colors.primary} /><Text style={styles.infoBadgeText}>{selectedAnimal?.species}</Text></View>
                     <View style={[styles.infoBadge, {backgroundColor: '#FFF0F0'}]}><Ionicons name="medical" size={16} color="#FF6B6B" /><Text style={[styles.infoBadgeText, {color: '#FF6B6B'}]}>{selectedAnimal?.health}</Text></View>
                      
                     {/* ADIÇÃO: Badge de Tempo Relativo (Visto há X min) */}
-                    <View style={[styles.infoBadge, {backgroundColor: '#F5F5F5'}]}>
-                      <Ionicons name="time-outline" size={16} color="#666" />
-                      <Text style={[styles.infoBadgeText, {color: '#666'}]}>
+                    <View style={[styles.infoBadge, {backgroundColor: colors.surface}]}>
+                      <Ionicons name="time-outline" size={16} color={colors.text} />
+                      <Text style={[styles.infoBadgeText, {color: colors.text}]}>
                         {getRelativeTime(selectedAnimal?.created_at)}
                       </Text>
                     </View>
@@ -442,9 +443,9 @@ export default function MapScreen() {
                   <Text style={styles.drawerSectionTitle}>Sobre o registro:</Text>
                   <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Faça uma doação para apoiar o resgate e tratamento.</Text>
                   <View style={styles.drawerActions}>
-                    <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color="#FFF" /></TouchableOpacity>
+                    <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color={colors.background} /></TouchableOpacity>
                     <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.donateButtonNew} onPress={() => { setDetailVisible(false); setTimeout(() => setDonateModalVisible(true), 400); }}><Ionicons name="heart" size={18} color="#FFF" /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.donateButtonNew} onPress={() => { setDetailVisible(false); setTimeout(() => setDonateModalVisible(true), 400); }}><Ionicons name="heart" size={18} color={colors.action} /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
                   </View>
                 </ScrollView>
               </View>
@@ -459,7 +460,7 @@ export default function MapScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.donateCard}>
             <View style={styles.donateHeader}>
               <View style={styles.heartCircle}>
-                <Ionicons name="heart" size={32} color="#FF6B6B" />
+                <Ionicons name="heart" size={32} color={colors.action} />
               </View>
               <Text style={styles.donateTitle}>Fazer uma Doação ❤️</Text>
               <Text style={styles.donateSubtitle}>Sua contribuição ajuda nos cuidados e tratamento de {selectedAnimal?.name || 'animais resgatados'}.</Text>
@@ -497,10 +498,10 @@ export default function MapScreen() {
               disabled={isProcessingPayment}
             >
               {isProcessingPayment ? (
-                <ActivityIndicator color="#FFF" />
+                <ActivityIndicator color={colors.background} />
               ) : (
                 <>
-                  <Ionicons name="card-outline" size={20} color="#FFF" style={{marginRight: 8}} />
+                  <Ionicons name="card-outline" size={20} color={colors.background} style={{marginRight: 8}} />
                   <Text style={styles.mpButtonText}>Pagar com Mercado Pago</Text>
                 </>
               )}
@@ -549,7 +550,7 @@ export default function MapScreen() {
                   </View>
 
                   {/* ADIÇÃO: Seleção de Urgência no Cadastro */}
-                  <Text style={{fontWeight: 'bold', marginBottom: 10, color: '#333'}}>Nível de Urgência:</Text>
+                  <Text style={{fontWeight: 'bold', marginBottom: 10, color: colors.text}}>Nível de Urgência:</Text>
                   <View style={styles.row}>
                     {['Estável', 'Alerta', 'Crítico'].map(level => (
                       <TouchableOpacity 
@@ -578,9 +579,9 @@ export default function MapScreen() {
                       disabled={isUploadingAnimal}
                     >
                       {isUploadingAnimal ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color={colors.background} />
                       ) : (
-                        <Text style={{color:'#FFF', fontWeight: 'bold'}}>Salvar no Mapa</Text>
+                        <Text style={{color:colors.background, fontWeight: 'bold'}}>Salvar no Mapa</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -599,7 +600,7 @@ export default function MapScreen() {
             <TextInput placeholder="Seu Nome" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerName} onChangeText={setRescuerName} style={[styles.input, styles.rescueInput]} />
             <TextInput placeholder="WhatsApp" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerContact} onChangeText={setRescuerContact} style={[styles.input, styles.rescueInput]} keyboardType="phone-pad" />
              
-            <Text style={{fontWeight:'bold', marginBottom:10, color:'#333'}}>Foto de Prova (Final Feliz) 📸</Text>
+            <Text style={{fontWeight:'bold', marginBottom:10, color:colors.text}}>Foto de Prova (Final Feliz) 📸</Text>
             <TouchableOpacity onPress={pickRescueImage} style={styles.imagePickerMini}>
               {rescueImage ? <Image source={{ uri: rescueImage.uri }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
             </TouchableOpacity>
@@ -612,9 +613,9 @@ export default function MapScreen() {
               disabled={isUploadingRescue}
             >
               {isUploadingRescue ? (
-                <ActivityIndicator color="#FFF" />
+                <ActivityIndicator color={colors.background} />
               ) : (
-                <Text style={{color:'#FFF', fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text>
+                <Text style={{color:colors.background, fontWeight:'bold'}}>Confirmar e Ganhar Moedas</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity disabled={isUploadingRescue} onPress={closeRescueForm} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#52606D'}}>Voltar</Text></TouchableOpacity>
@@ -629,79 +630,79 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   rescueInput: { backgroundColor: '#F8FAFC', color: '#1F2937', borderColor: '#94A3B8', opacity: 1 },
   clearLocationButton: { position: 'absolute', bottom: 110, alignSelf: 'center', flexDirection: 'row', gap: 6,
-    backgroundColor: '#FFF', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 20, paddingHorizontal: 16,
+    backgroundColor: colors.background, borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 20, paddingHorizontal: 16,
     minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1 },
   map: { flex: 1 },
-  locationState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#FFF' },
-  locationErrorText: { color: '#666', fontSize: 16, textAlign: 'center', marginBottom: 18 },
-  locationRetryButton: { backgroundColor: '#4A90E2', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
-  locationRetryText: { color: '#FFF', fontWeight: 'bold' },
-  userMarker: { backgroundColor: '#4A90E2', padding: 6, borderRadius: 20, borderWidth: 2, borderColor: '#FFF' },
+  locationState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: colors.background },
+  locationErrorText: { color: colors.text, fontSize: 16, textAlign: 'center', marginBottom: 18 },
+  locationRetryButton: { backgroundColor: colors.action, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
+  locationRetryText: { color: colors.background, fontWeight: 'bold' },
+  userMarker: { backgroundColor: colors.primary, padding: 6, borderRadius: 20, borderWidth: 2, borderColor: colors.background },
   userMarkerPremium: { backgroundColor: '#FFD700', borderColor: '#B8860B' },
-  petMarker: { padding: 6, borderRadius: 15, borderWidth: 2, borderColor: '#FFF' },
+  petMarker: { padding: 6, borderRadius: 15, borderWidth: 2, borderColor: colors.background },
   filterContainer: { position: 'absolute', top: 60, flexDirection: 'row', alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.95)', padding: 5, borderRadius: 30, elevation: 5, zIndex: 10 },
   filterBtn: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20 },
-  filterBtnActive: { backgroundColor: '#4A90E2' },
-  filterText: { color: '#666', fontWeight: 'bold' },
-  filterTextActive: { color: '#FFF' },
+  filterBtnActive: { backgroundColor: colors.primary },
+  filterText: { color: colors.text, fontWeight: 'bold' },
+  filterTextActive: { color: colors.background },
   addButton: { position: 'absolute', bottom: 40, alignSelf: 'center', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30, elevation: 5 },
-  addButtonText: { color: '#fff', fontWeight: 'bold' },
+  addButtonText: { color: colors.background, fontWeight: 'bold' },
   drawerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  drawerContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '75%', elevation: 10 },
+  drawerContent: { backgroundColor: colors.background, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '75%', elevation: 10 },
   drawerHandle: { width: 40, height: 5, backgroundColor: '#EEE', borderRadius: 10, alignSelf: 'center', marginBottom: 15 },
   drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  drawerTitle: { fontSize: 24, fontWeight: 'bold', color: '#333' },
-  drawerImage: { width: '100%', height: 180, borderRadius: 20, marginBottom: 15, backgroundColor: '#F0F0F0' },
+  drawerTitle: { fontSize: 24, fontWeight: 'bold', color: colors.primary },
+  drawerImage: { width: '100%', height: 180, borderRadius: 20, marginBottom: 15, backgroundColor: colors.surface },
   infoRow: { flexDirection: 'row', marginBottom: 15, flexWrap: 'wrap' },
-  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F7FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginRight: 8, marginBottom: 5 },
-  infoBadgeText: { marginLeft: 6, fontWeight: 'bold', color: '#4A90E2', fontSize: 11 },
-  drawerSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  drawerDescription: { fontSize: 14, color: '#777', lineHeight: 20, marginBottom: 20 },
-  drawerActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  shareButton: { backgroundColor: '#25D366', padding: 14, borderRadius: 15, width: 55, alignItems: 'center' },
-  rescueButton: { flex: 1, backgroundColor: '#4A90E2', padding: 14, borderRadius: 15, marginHorizontal: 8, alignItems: 'center' },
-  donateButtonNew: { backgroundColor: '#FF6B6B', flexDirection: 'row', padding: 14, borderRadius: 15, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15 },
-  donateButtonText: { color: '#FFF', fontWeight: 'bold', marginLeft: 5, fontSize: 14 },
-  actionButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginRight: 8, marginBottom: 5 },
+  infoBadgeText: { marginLeft: 6, fontWeight: 'bold', color: colors.primary, fontSize: 11 },
+  drawerSectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primary, marginBottom: 5 },
+  drawerDescription: { fontSize: 14, color: colors.text, lineHeight: 20, marginBottom: 20 },
+  drawerActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  shareButton: { backgroundColor: colors.success, padding: 14, borderRadius: 15, width: 55, alignItems: 'center' },
+  rescueButton: { flex: 1, minWidth: 100, backgroundColor: colors.action, padding: 14, borderRadius: 15, alignItems: 'center' },
+  donateButtonNew: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.action, flexDirection: 'row', padding: 14, borderRadius: 15, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15 },
+  donateButtonText: { color: colors.action, fontWeight: 'bold', marginLeft: 5, fontSize: 14 },
+  actionButtonText: { color: colors.background, fontWeight: 'bold', fontSize: 15 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalKeyboardContainer: { flex: 1 },
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '90%', overflow: 'hidden' },
+  modalContent: { backgroundColor: colors.background, borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '90%', overflow: 'hidden' },
   animalFormContent: { paddingHorizontal: 25, paddingTop: 25 },
-  rescueModal: { backgroundColor: '#FFF', borderRadius: 25, padding: 25, elevation: 10, maxHeight: '95%', flexShrink: 1 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' },
-  input: { backgroundColor: '#F8F9FA', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#EEE', color: '#333' },
+  rescueModal: { backgroundColor: colors.background, borderRadius: 25, padding: 25, elevation: 10, maxHeight: '95%', flexShrink: 1 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: colors.primary },
+  input: { backgroundColor: colors.surface, padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#EEE', color: colors.text },
   row: { flexDirection: 'row', marginBottom: 15 },
-  tag: { flex: 1, backgroundColor: '#F1F3F5', padding: 14, marginRight: 10, borderRadius: 12, alignItems: 'center' },
-  tagSelected: { backgroundColor: '#4A90E2' },
-  tagText: { color: '#495057', fontWeight: 'bold' },
-  tagTextSelected: { color: '#FFF' },
-  imagePickerBtn: { height: 100, backgroundColor: '#F8F9FA', borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CCC', marginBottom: 15 },
-  imagePickerMini: { height: 80, backgroundColor: '#F8F9FA', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CCC', marginBottom: 20 },
+  tag: { flex: 1, backgroundColor: colors.surface, padding: 14, marginRight: 10, borderRadius: 12, alignItems: 'center' },
+  tagSelected: { backgroundColor: colors.primary },
+  tagText: { color: colors.text, fontWeight: 'bold' },
+  tagTextSelected: { color: colors.background },
+  imagePickerBtn: { height: 100, backgroundColor: colors.surface, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CCC', marginBottom: 15 },
+  imagePickerMini: { height: 80, backgroundColor: colors.surface, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CCC', marginBottom: 20 },
   previewImage: { width: '100%', height: '100%', borderRadius: 15 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between' },
   cancelButton: { padding: 15, flex: 1, alignItems: 'center' },
-  saveButton: { backgroundColor: '#2ECC71', padding: 15, borderRadius: 12, flex: 2, alignItems: 'center' },
-  confirmRescueBtn: { backgroundColor: '#2ECC71', padding: 16, borderRadius: 12, alignItems: 'center' },
+  saveButton: { backgroundColor: colors.action, padding: 15, borderRadius: 12, flex: 2, alignItems: 'center' },
+  confirmRescueBtn: { backgroundColor: colors.action, padding: 16, borderRadius: 12, alignItems: 'center' },
 
   // Estilos do Modal de Doação Customizado
-  donateCard: { backgroundColor: '#FFF', borderRadius: 28, padding: 24, elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
+  donateCard: { backgroundColor: colors.background, borderRadius: 28, padding: 24, elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
   donateHeader: { alignItems: 'center', marginBottom: 20 },
-  heartCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF0F0', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  donateTitle: { fontSize: 20, fontWeight: 'bold', color: '#2D3748', textAlign: 'center' },
-  donateSubtitle: { fontSize: 13, color: '#718096', textAlign: 'center', marginTop: 6, lineHeight: 18 },
-  presetLabel: { fontSize: 13, fontWeight: '600', color: '#4A5568', marginBottom: 10 },
+  heartCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  donateTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primary, textAlign: 'center' },
+  donateSubtitle: { fontSize: 13, color: colors.text, textAlign: 'center', marginTop: 6, lineHeight: 18 },
+  presetLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 10 },
   presetContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  presetChip: { flex: 1, backgroundColor: '#F7FAFC', borderWidth: 1.5, borderColor: '#E2E8F0', paddingVertical: 10, borderRadius: 12, marginHorizontal: 3, alignItems: 'center' },
-  presetChipSelected: { backgroundColor: '#EBF8FF', borderColor: '#3182CE' },
-  presetText: { fontSize: 14, fontWeight: 'bold', color: '#4A5568' },
-  presetTextSelected: { color: '#3182CE' },
-  customAmountContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7FAFC', borderWidth: 1.5, borderColor: '#CBD5E0', borderRadius: 14, paddingHorizontal: 16, marginBottom: 20, height: 54 },
-  currencyPrefix: { fontSize: 18, fontWeight: 'bold', color: '#4A5568', marginRight: 8 },
-  customAmountInput: { flex: 1, fontSize: 18, fontWeight: 'bold', color: '#2D3748' },
-  mpButton: { backgroundColor: '#009EE3', flexDirection: 'row', paddingVertical: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  mpButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  presetChip: { flex: 1, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: '#E2E8F0', paddingVertical: 10, borderRadius: 12, marginHorizontal: 3, alignItems: 'center' },
+  presetChipSelected: { backgroundColor: colors.surface, borderColor: colors.primary },
+  presetText: { fontSize: 14, fontWeight: 'bold', color: colors.text },
+  presetTextSelected: { color: colors.primary },
+  customAmountContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1.5, borderColor: '#CBD5E0', borderRadius: 14, paddingHorizontal: 16, marginBottom: 20, height: 54 },
+  currencyPrefix: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginRight: 8 },
+  customAmountInput: { flex: 1, fontSize: 18, fontWeight: 'bold', color: colors.text },
+  mpButton: { backgroundColor: colors.action, flexDirection: 'row', paddingVertical: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center', elevation: 2 },
+  mpButtonText: { color: colors.background, fontWeight: 'bold', fontSize: 16 },
   closeDonateBtn: { marginTop: 14, paddingVertical: 10, alignItems: 'center' },
-  closeDonateText: { color: '#A0AEC0', fontWeight: '600', fontSize: 14 }
+  closeDonateText: { color: colors.danger, fontWeight: '600', fontSize: 14 }
 });

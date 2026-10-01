@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
 import PasswordInput from '../components/PasswordInput';
@@ -274,12 +275,12 @@ export default function AccountScreen({ navigation }) {
           {/* HEADER PERFIL */}
           <View style={styles.profileHeader}>
             <View style={[styles.avatar, user?.is_premium === 1 || user?.plan_tier > 0 ? styles.avatarPremium : null]}>
-              <Ionicons name="person" size={55} color="#FFF" />
+              <Ionicons name="person" size={55} color={colors.background} />
               <TouchableOpacity style={styles.editBadgeAvatar} onPress={openEditProfile}>
-                 <Ionicons name="pencil" size={14} color="#FFF" />
+                 <Ionicons name="pencil" size={14} color={colors.background} />
               </TouchableOpacity>
               {user?.is_premium === 1 || user?.plan_tier > 0 ? (
-                <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={22} color="#4A90E2" /></View>
+                <View style={styles.verifiedBadge}><Ionicons name="checkmark-circle" size={22} color={colors.primary} /></View>
               ) : null}
             </View>
 
@@ -312,7 +313,7 @@ export default function AccountScreen({ navigation }) {
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="checkmark-done-circle" size={18} color="#2ECC71" />
+                <Ionicons name="checkmark-done-circle" size={18} color={colors.success} />
                 <Text style={styles.statText}>
                 {myRescues.filter(animal => animal.status === 1).length} Salvos
                 </Text>
@@ -323,19 +324,19 @@ export default function AccountScreen({ navigation }) {
           {/* CARDS DE PLANO E ASSINATURA */}
           <SubscriptionBenefits user={profile} />
           <TouchableOpacity 
-            style={[styles.upgradeCard, { backgroundColor: '#8E44AD', marginTop: 15, marginBottom: 5 }]} 
+            style={[styles.upgradeCard, { backgroundColor: colors.primary, marginTop: 15, marginBottom: 5 }]}
             onPress={() => navigation.navigate('Subscription')}
           >
-            <Ionicons name="card" size={24} color="#FFF" />
+            <Ionicons name="card" size={24} color={colors.background} />
             <View style={{flex: 1, marginLeft: 15}}>
               <Text style={styles.upgradeTitle}>Planos de Assinatura</Text>
               <Text style={styles.upgradeSubtitle}>Conheça os benefícios e apoie a causa</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#FFF" />
+            <Ionicons name="chevron-forward" size={20} color={colors.background} />
           </TouchableOpacity>
 
             <TouchableOpacity style={styles.upgradeCard} disabled={buyingPro} onPress={confirmPro} accessibilityRole="button">
-              <Ionicons name="diamond" size={24} color="#FFF" />
+              <Ionicons name="diamond" size={24} color={colors.background} />
               <View style={{flex: 1, marginLeft: 15}}>
                 <Text style={styles.upgradeTitle}>{buyingPro ? 'Aguarde…' : user?.is_premium ? 'Renovar PRO' : benefits.premium.status === 'EXPIRED' ? 'Reativar PRO' : 'Seja um Membro PRO'}</Text>
                 <Text style={styles.upgradeSubtitle}>30 dias de PRO por 50 moedas</Text>
@@ -345,19 +346,19 @@ export default function AccountScreen({ navigation }) {
           {/* MENU CONTA */}
           <View style={styles.menu}>
             <TouchableOpacity style={styles.menuItem} onPress={loadMyRescues}>
-              <View style={[styles.iconArea, {backgroundColor: '#E1F0FF'}]}><Ionicons name="heart" size={22} color="#4A90E2" /></View>
+              <View style={[styles.iconArea, {backgroundColor: colors.surface}]}><Ionicons name="heart" size={22} color={colors.primary} /></View>
               <Text style={styles.menuText}>Minhas Contribuições</Text>
               <Ionicons name="chevron-forward" size={18} color="#CCC" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={openEditProfile}>
-              <View style={[styles.iconArea, {backgroundColor: '#F0F0F0'}]}><Ionicons name="person-outline" size={22} color="#666" /></View>
+              <View style={[styles.iconArea, {backgroundColor: colors.surface}]}><Ionicons name="person-outline" size={22} color={colors.text} /></View>
               <Text style={styles.menuText}>Editar Perfil</Text>
               <Ionicons name="chevron-forward" size={18} color="#CCC" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => setPwdModal(true)}>
-              <View style={[styles.iconArea, {backgroundColor: '#F0F0F0'}]}><Ionicons name="lock-closed-outline" size={22} color="#666" /></View>
+              <View style={[styles.iconArea, {backgroundColor: colors.surface}]}><Ionicons name="lock-closed-outline" size={22} color={colors.text} /></View>
               <Text style={styles.menuText}>Segurança e Senha</Text>
               <Ionicons name="chevron-forward" size={18} color="#CCC" />
             </TouchableOpacity>
@@ -368,12 +369,12 @@ export default function AccountScreen({ navigation }) {
             <Text style={styles.sectionTitle}>Loja Oficial PetGo 🛍️</Text>
             {storeItems.map(item => (
               <TouchableOpacity key={item.id} style={styles.partnerCard} onPress={() => handleBuyProduct(item)}>
-                <View style={[styles.partnerIconArea, {backgroundColor: '#FFF5E6'}]}><Ionicons name={item.icon} size={24} color="#F39C12" /></View>
+                <View style={[styles.partnerIconArea, {backgroundColor: colors.surface}]}><Ionicons name={item.icon} size={24} color={colors.action} /></View>
                 <View style={styles.partnerInfo}>
                   <Text style={styles.partnerName}>{item.name}</Text>
                   <Text style={styles.partnerDesc}>{item.price} ou {item.coins} moedas</Text>
                 </View>
-                <Ionicons name="cart" size={22} color="#F39C12" />
+                <Ionicons name="cart" size={22} color={colors.action} />
               </TouchableOpacity>
             ))}
           </View>
@@ -383,13 +384,13 @@ export default function AccountScreen({ navigation }) {
             <Text style={styles.sectionTitle}>Marketplace 🎁</Text>
             {partners.map(p => (
               <TouchableOpacity key={p.id} style={styles.partnerCard} onPress={() => handleRedeem(p)}>
-                <View style={styles.partnerIconArea}><Ionicons name={p.icon} size={24} color="#4A90E2" /></View>
+                <View style={styles.partnerIconArea}><Ionicons name={p.icon} size={24} color={colors.primary} /></View>
                 <View style={styles.partnerInfo}>
                   <Text style={styles.partnerName}>{p.name}</Text>
                   <Text style={styles.partnerDesc}>{p.desc}</Text>
                   <View style={styles.costBadge}><Text style={styles.costText}>{p.cost} PetCoins</Text></View>
                 </View>
-                <Ionicons name="ticket-outline" size={22} color="#4A90E2" />
+                <Ionicons name="ticket-outline" size={22} color={colors.primary} />
               </TouchableOpacity>
             ))}
           </View>
@@ -397,18 +398,18 @@ export default function AccountScreen({ navigation }) {
           {/* PARCERIA ONG */}
           <View style={styles.partnersSection}>
             <TouchableOpacity 
-              style={[styles.upgradeCard, { backgroundColor: '#27AE60', marginHorizontal: 0, marginTop: 5, marginBottom: 10 }]} 
+              style={[styles.upgradeCard, { backgroundColor: colors.success, marginHorizontal: 0, marginTop: 5, marginBottom: 10 }]}
               onPress={() => Alert.alert(
                 'Parceria Institucional 🏢', 
                 'Representa uma ONG ou abrigo de animais? Envie um e-mail para parceiros@petgo.com com o seu CNPJ para validarmos e liberarmos o seu painel de gestão exclusivo.'
               )}
             >
-              <Ionicons name="business" size={24} color="#FFF" />
+              <Ionicons name="business" size={24} color={colors.background} />
               <View style={{flex: 1, marginLeft: 15}}>
                 <Text style={styles.upgradeTitle}>Representa uma ONG?</Text>
                 <Text style={styles.upgradeSubtitle}>Torne-se parceira e receba apadrinhamentos</Text>
               </View>
-              <Ionicons name="mail" size={20} color="#FFF" />
+              <Ionicons name="mail" size={20} color={colors.background} />
             </TouchableOpacity>
           </View>
 
@@ -434,7 +435,7 @@ export default function AccountScreen({ navigation }) {
                 <Text style={styles.btnSaveText}>Salvar</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditModal(false)} style={{marginTop: 15}}>
-                <Text style={{textAlign: 'center', color: '#666'}}>Voltar</Text>
+                <Text style={{textAlign: 'center', color: colors.text}}>Voltar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -452,7 +453,7 @@ export default function AccountScreen({ navigation }) {
                 <Text style={styles.btnSaveText}>Atualizar Senha</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setPwdModal(false)} style={{marginTop: 15}}>
-                <Text style={{textAlign: 'center', color: '#666'}}>Cancelar</Text>
+                <Text style={{textAlign: 'center', color: colors.danger}}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -460,10 +461,10 @@ export default function AccountScreen({ navigation }) {
 
         {/* MODAL 3: HISTÓRICO DE RESGATES */}
         <Modal visible={rescueModal} animationType="slide">
-          <SafeAreaView style={{flex: 1, backgroundColor: '#FFF'}}>
+          <SafeAreaView style={{flex: 1, backgroundColor: colors.background}}>
             <View style={styles.modalListHeader}>
               <TouchableOpacity onPress={() => setRescueModal(false)} style={{padding: 10}}>
-                <Ionicons name="close" size={32} color="#333" />
+                <Ionicons name="close" size={32} color={colors.text} />
               </TouchableOpacity>
               <Text style={styles.modalTitleHeader}>Histórico de Ações</Text>
               <View style={{width: 50}} />
@@ -477,7 +478,7 @@ export default function AccountScreen({ navigation }) {
                   <Image source={{ uri: getImageUri(item.image_url) }} style={styles.cardImage} />
                   <View style={{marginLeft: 15, flex: 1}}>
                     <Text style={styles.cardName}>{String(item.name)}</Text>
-                    <Text style={{color: '#666', fontSize: 12}}>{String(item.species)}</Text>
+                    <Text style={{color: colors.text, fontSize: 12}}>{String(item.species)}</Text>
                     <View style={[styles.statusTag, {backgroundColor: item.status === 1 ? '#D1FAE5' : '#FEF3C7'}]}>
                        <Text style={[styles.statusTagText, {color: item.status === 1 ? '#059669' : '#D97706'}]}>
                          {item.status === 1 ? 'Salvo ❤️' : 'Aguardando ⏳'}
@@ -487,7 +488,7 @@ export default function AccountScreen({ navigation }) {
                   {item.status === 1 && item.rescue_image_url ? (
                     <View style={styles.finalHappyBox}>
                        <Image source={{ uri: getImageUri(item.rescue_image_url) }} style={styles.rescueThumbnail} />
-                       <Text style={{fontSize: 8, color: '#4A90E2', fontWeight: 'bold'}}>FINAL FELIZ</Text>
+                       <Text style={{fontSize: 8, color: colors.primary, fontWeight: 'bold'}}>FINAL FELIZ</Text>
                     </View>
                   ) : null}
                 </View>
@@ -561,9 +562,9 @@ export default function AccountScreen({ navigation }) {
                       <Ionicons
                         name={selectedOng === ong ? "radio-button-on" : "radio-button-off"}
                         size={16}
-                        color={selectedOng === ong ? "#4A90E2" : "#999"}
+                        color={selectedOng === ong ? colors.primary : "#999"}
                       />
-                      <Text style={{ marginLeft: 8, fontSize: 12, color: '#333', flex: 1 }}>{ong}</Text>
+                      <Text style={{ marginLeft: 8, fontSize: 12, color: colors.text, flex: 1 }}>{ong}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -580,14 +581,14 @@ export default function AccountScreen({ navigation }) {
               )}
 
               <TouchableOpacity 
-                style={[styles.btnSave, { backgroundColor: '#F39C12', marginBottom: 8 }]} 
+                style={[styles.btnSave, { backgroundColor: colors.coins, marginBottom: 8 }]}
                 onPress={() => processPhysicalPurchase('COINS')}
               >
                 <Text style={styles.btnSaveText}>Pagar com {selectedItem?.coins} Coins</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.btnSave, { backgroundColor: '#009EE3', marginBottom: 8 }]} 
+                style={[styles.btnSave, { backgroundColor: colors.action, marginBottom: 8 }]}
                 onPress={() => processPhysicalPurchase('MERCADO_PAGO')}
                 disabled={isProcessingPayment}
               >
@@ -597,14 +598,14 @@ export default function AccountScreen({ navigation }) {
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.btnSave, { backgroundColor: '#27AE60' }]} 
+                style={[styles.btnSave, { backgroundColor: colors.success }]}
                 onPress={() => processPhysicalPurchase('PIX')}
               >
                 <Text style={styles.btnSaveText}>Pagar em PIX ({selectedItem?.price})</Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => setProductModal(false)} style={{ marginTop: 12 }}>
-                <Text style={{ textAlign: 'center', color: '#666' }}>Cancelar</Text>
+                <Text style={{ textAlign: 'center', color: colors.danger }}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -616,60 +617,60 @@ export default function AccountScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  profileHeader: { alignItems: 'center', paddingVertical: 30, backgroundColor: '#FFF', borderBottomLeftRadius: 35, borderBottomRightRadius: 35, elevation: 5 },
-  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#4A90E2', justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  avatarPremium: { borderWidth: 4, borderColor: '#FFD700' },
-  editBadgeAvatar: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#333', padding: 8, borderRadius: 20, borderWidth: 3, borderColor: '#FFF', zIndex: 999 },
-  verifiedBadge: { position: 'absolute', bottom: -2, left: -2, backgroundColor: '#FFF', borderRadius: 15 },
+  container: { flex: 1, backgroundColor: colors.background },
+  profileHeader: { alignItems: 'center', paddingVertical: 30, backgroundColor: colors.background, borderBottomLeftRadius: 35, borderBottomRightRadius: 35, elevation: 5 },
+  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  avatarPremium: { borderWidth: 4, borderColor: colors.primary },
+  editBadgeAvatar: { position: 'absolute', bottom: 0, right: 0, backgroundColor: colors.text, padding: 8, borderRadius: 20, borderWidth: 3, borderColor: colors.background, zIndex: 999 },
+  verifiedBadge: { position: 'absolute', bottom: -2, left: -2, backgroundColor: colors.background, borderRadius: 15 },
   userNameRow: { flexDirection: 'row', alignItems: 'center', marginTop: 15 },
-  userName: { fontSize: 24, fontWeight: 'bold', color: '#333' },
+  userName: { fontSize: 24, fontWeight: 'bold', color: colors.primary },
   userEmail: { fontSize: 14, color: '#888', marginBottom: 5 },
-  memberBadge: { backgroundColor: '#E1F0FF', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, marginBottom: 15 },
-  memberBadgeText: { color: '#4A90E2', fontWeight: 'bold', fontSize: 13 },
+  memberBadge: { backgroundColor: colors.surface, paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20, marginBottom: 15 },
+  memberBadgeText: { color: colors.primary, fontWeight: 'bold', fontSize: 13 },
   statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', paddingHorizontal: 10 },
-  statBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', padding: 10, borderRadius: 15, minWidth: '30%', justifyContent: 'center' },
-  premiumBadgeBox: { backgroundColor: '#FFF9E6', borderWidth: 1, borderColor: '#FFD700' },
-  statText: { marginLeft: 5, fontWeight: 'bold', fontSize: 10, color: '#555' },
-  upgradeCard: { margin: 20, backgroundColor: '#4A90E2', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', elevation: 4 },
-  upgradeTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  statBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: 10, borderRadius: 15, minWidth: '30%', justifyContent: 'center' },
+  premiumBadgeBox: { backgroundColor: colors.surface, borderWidth: 1, borderColor: '#FFD700' },
+  statText: { marginLeft: 5, fontWeight: 'bold', fontSize: 10, color: colors.text },
+  upgradeCard: { margin: 20, backgroundColor: colors.action, borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', elevation: 4 },
+  upgradeTitle: { color: colors.background, fontWeight: 'bold', fontSize: 16 },
   upgradeSubtitle: { color: '#EEE', fontSize: 11 },
   menu: { paddingHorizontal: 20, marginTop: 10 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 18, elevation: 2, marginBottom: 10 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, padding: 15, borderRadius: 18, elevation: 2, marginBottom: 10 },
   iconArea: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  menuText: { flex: 1, fontSize: 15, marginLeft: 15, color: '#333', fontWeight: '500' },
+  menuText: { flex: 1, fontSize: 15, marginLeft: 15, color: colors.text, fontWeight: '500' },
   partnersSection: { paddingHorizontal: 20, marginTop: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-  partnerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 15, borderRadius: 18, marginBottom: 10, elevation: 3 },
-  partnerIconArea: { backgroundColor: '#F0F7FF', padding: 10, borderRadius: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 15 },
+  partnerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, padding: 15, borderRadius: 18, marginBottom: 10, elevation: 3 },
+  partnerIconArea: { backgroundColor: colors.surface, padding: 10, borderRadius: 12 },
   partnerInfo: { flex: 1, marginLeft: 15 },
-  partnerName: { fontWeight: 'bold', color: '#333' },
-  partnerDesc: { fontSize: 12, color: '#666' },
+  partnerName: { fontWeight: 'bold', color: colors.primary },
+  partnerDesc: { fontSize: 12, color: colors.text },
   costBadge: { backgroundColor: '#FFF9E6', paddingHorizontal: 8, borderRadius: 6, marginTop: 4, alignSelf: 'flex-start' },
   costText: { fontSize: 10, color: '#B8860B', fontWeight: 'bold' },
-  logoutButton: { marginHorizontal: 20, marginTop: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#FF3B30' },
-  logoutText: { color: '#FF3B30', fontWeight: 'bold' },
-  deleteButton: { marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', backgroundColor: '#FF3B30' },
-  deleteText: { color: '#FFF', fontWeight: 'bold' },
+  logoutButton: { marginHorizontal: 20, marginTop: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: colors.danger },
+  logoutText: { color: colors.danger, fontWeight: 'bold' },
+  deleteButton: { marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 20, alignItems: 'center', backgroundColor: colors.danger },
+  deleteText: { color: colors.background, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', backgroundColor: '#FFF', padding: 25, borderRadius: 30, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 10, color: '#333' },
+  modalContent: { width: '85%', backgroundColor: colors.background, padding: 25, borderRadius: 30, alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 10, color: colors.primary },
   modalListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, paddingTop: Platform.OS === 'ios' ? 20 : 10 },
-  modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  modalTitleHeader: { fontSize: 18, fontWeight: 'bold', color: colors.primary },
   input: { 
     width: '100%',
-    backgroundColor: '#F0F0F0', 
+    backgroundColor: colors.surface,
     padding: 15, 
     borderRadius: 12, 
     marginBottom: 15, 
-    color: '#333', 
+    color: colors.text,
     fontSize: 15, 
     borderWidth: 1, 
     borderColor: '#DDD' 
   },
   btnSave: { 
     width: '100%', 
-    backgroundColor: '#4A90E2', 
+    backgroundColor: colors.action,
     paddingVertical: 14,
     paddingHorizontal: 12, 
     borderRadius: 12, 
@@ -677,32 +678,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   btnSaveText: { 
-    color: '#FFF', 
+    color: colors.background,
     fontWeight: 'bold', 
     textAlign: 'center', 
     fontSize: 13.5,
     lineHeight: 18
   },
-  rescueCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
-  cardImage: { width: 65, height: 65, borderRadius: 12, backgroundColor: '#F0F0F0' },
-  cardName: { fontWeight: 'bold', fontSize: 16, color: '#333' },
+  rescueCard: { flexDirection: 'row', backgroundColor: colors.background, padding: 15, borderRadius: 15, marginBottom: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEE' },
+  cardImage: { width: 65, height: 65, borderRadius: 12, backgroundColor: colors.surface },
+  cardName: { fontWeight: 'bold', fontSize: 16, color: colors.primary },
   statusTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 5 },
   statusTagText: { fontSize: 10, fontWeight: 'bold' },
   finalHappyBox: { alignItems: 'center', marginLeft: 10 },
-  rescueThumbnail: { width: 50, height: 50, borderRadius: 8, borderWidth: 1, borderColor: '#4A90E2' },
-  voucherOffer: { fontSize: 16, fontWeight: 'bold', color: '#2ECC71', textAlign: 'center' },
-  voucherPartner: { fontSize: 13, color: '#666', marginBottom: 15, textAlign: 'center' },
-  qrContainer: { padding: 10, backgroundColor: '#FFF', borderRadius: 15, borderWidth: 1, borderColor: '#EEE', marginBottom: 15 },
-  codeBox: { backgroundColor: '#F8F9FA', padding: 12, borderRadius: 10, width: '100%', alignItems: 'center', marginBottom: 15 },
+  rescueThumbnail: { width: 50, height: 50, borderRadius: 8, borderWidth: 1, borderColor: colors.primary },
+  voucherOffer: { fontSize: 16, fontWeight: 'bold', color: colors.success, textAlign: 'center' },
+  voucherPartner: { fontSize: 13, color: colors.text, marginBottom: 15, textAlign: 'center' },
+  qrContainer: { padding: 10, backgroundColor: colors.background, borderRadius: 15, borderWidth: 1, borderColor: '#EEE', marginBottom: 15 },
+  codeBox: { backgroundColor: colors.surface, padding: 12, borderRadius: 10, width: '100%', alignItems: 'center', marginBottom: 15 },
   codeLabel: { fontSize: 10, color: '#888', fontWeight: 'bold' },
-  codeText: { fontSize: 18, fontWeight: 'bold', color: '#2ECC71', marginTop: 2 },
+  codeText: { fontSize: 18, fontWeight: 'bold', color: colors.success, marginTop: 2 },
   timeText: { fontSize: 10, color: '#AAA', marginTop: 2 },
   tabRow: { flexDirection: 'row', width: '100%', marginVertical: 15 },
-  tabButton: { flex: 1, paddingVertical: 10, borderWidth: 1, borderColor: '#4A90E2', borderRadius: 10, alignItems: 'center', marginHorizontal: 4 },
-  tabButtonActive: { backgroundColor: '#4A90E2' },
-  tabText: { color: '#4A90E2', fontWeight: 'bold', fontSize: 12 },
-  tabTextActive: { color: '#FFF' },
-  fieldLabel: { fontSize: 12, fontWeight: 'bold', color: '#555', marginBottom: 8 },
+  tabButton: { flex: 1, paddingVertical: 10, borderWidth: 1, borderColor: colors.primary, borderRadius: 10, alignItems: 'center', marginHorizontal: 4 },
+  tabButtonActive: { backgroundColor: colors.primary },
+  tabText: { color: colors.primary, fontWeight: 'bold', fontSize: 12 },
+  tabTextActive: { color: colors.background },
+  fieldLabel: { fontSize: 12, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
   ongOption: { flexDirection: 'row', alignItems: 'center', padding: 8, borderWidth: 1, borderColor: '#EEE', borderRadius: 8, marginBottom: 6 },
-  ongOptionActive: { borderColor: '#4A90E2', backgroundColor: '#F0F7FF' }
+  ongOptionActive: { borderColor: colors.primary, backgroundColor: colors.surface }
 });

@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -47,7 +48,7 @@ export default function NearbyScreen() {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#4A90E2" /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
   if (locationError || !location) {
     return (
@@ -71,7 +72,7 @@ export default function NearbyScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Animais Próximos 📍</Text>
         <Text style={styles.subtitle}>Raio: {radius.toFixed(0)} km</Text>
-        <Slider style={{width: '100%', height: 40}} minimumValue={1} maximumValue={100} minimumTrackTintColor="#4A90E2" thumbTintColor="#4A90E2" value={radius} onValueChange={setRadius} />
+        <Slider style={{width: '100%', height: 40}} minimumValue={1} maximumValue={100} minimumTrackTintColor={colors.primary} thumbTintColor={colors.primary} value={radius} onValueChange={setRadius} />
       </View>
       <FlatList
         data={filtered}
@@ -90,17 +91,17 @@ export default function NearbyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderColor: '#EEE', paddingTop: 60 },
-  title: { fontSize: 22, fontWeight: 'bold' },
-  subtitle: { fontSize: 16, color: '#666' },
-  card: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { padding: 20, backgroundColor: colors.background, borderBottomWidth: 1, borderColor: '#EEE', paddingTop: 60 },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.primary },
+  subtitle: { fontSize: 16, color: colors.text },
+  card: { backgroundColor: colors.background, padding: 20, borderRadius: 15, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
   animalName: { fontSize: 18, fontWeight: 'bold' },
-  animalInfo: { color: '#666' },
-  distanceText: { fontWeight: 'bold', color: '#4A90E2' },
+  animalInfo: { color: colors.text },
+  distanceText: { fontWeight: 'bold', color: colors.primary },
   empty: { textAlign: 'center', marginTop: 50, color: '#999' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  locationError: { color: '#666', fontSize: 16, textAlign: 'center', marginBottom: 18 },
-  retryButton: { backgroundColor: '#4A90E2', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
-  retryButtonText: { color: '#FFF', fontWeight: 'bold' }
+  locationError: { color: colors.text, fontSize: 16, textAlign: 'center', marginBottom: 18 },
+  retryButton: { backgroundColor: colors.action, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
+  retryButtonText: { color: colors.background, fontWeight: 'bold' }
 });

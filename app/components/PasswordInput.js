@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useEffect, useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ export default function PasswordInput({ style, resetKey, editable = true, ...pro
       accessibilityLabel={`${visible ? 'Ocultar' : 'Mostrar'} ${props.placeholder || 'senha'}`}
       accessibilityState={{ disabled: !editable }} disabled={!editable}
       onPress={() => setVisible(value => !value)} style={styles.eye}>
-      <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={24} color="#475569" />
+      <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={24} color={colors.primary} />
     </TouchableOpacity>
   </View>;
 }

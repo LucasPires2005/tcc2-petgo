@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useContext, useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import SubscriptionBenefits, { useBenefits } from '../components/SubscriptionBenefits';
@@ -20,7 +21,7 @@ export default function SubscriptionScreen({ navigation }) {
       name: 'Plano Amigo',
       price: 'R$ 19,90',
       period: '/30 dias',
-      color: '#4A90E2',
+      color: colors.action,
       icon: 'paw',
       benefits: [
         'Multiplicador 1x PetCoins',
@@ -34,7 +35,7 @@ export default function SubscriptionScreen({ navigation }) {
       name: 'Plano Protetor',
       price: 'R$ 39,90',
       period: '/30 dias',
-      color: '#8E44AD',
+      color: colors.protector,
       icon: 'shield-checkmark',
       benefits: [
         'Multiplicador 2x PetCoins',
@@ -48,7 +49,7 @@ export default function SubscriptionScreen({ navigation }) {
       name: 'Plano Guardião',
       price: 'R$ 79,90',
       period: '/30 dias',
-      color: '#F39C12',
+      color: colors.guardian,
       icon: 'diamond',
       benefits: [
         'Multiplicador 3x PetCoins',
@@ -92,7 +93,7 @@ export default function SubscriptionScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Planos de Assinatura</Text>
         <View style={{ width: 24 }} />
@@ -119,7 +120,7 @@ export default function SubscriptionScreen({ navigation }) {
               )}
 
               <View style={[styles.cardHeader, { backgroundColor: plan.color }]}>
-                <Ionicons name={plan.icon} size={32} color="#FFF" />
+                <Ionicons name={plan.icon} size={32} color={colors.background} />
                 <View style={{ marginLeft: 15 }}>
                   <Text style={styles.planName}>{plan.name}</Text>
                   <Text style={styles.planPrice}>
@@ -159,27 +160,27 @@ export default function SubscriptionScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: '#FFF', elevation: 2 },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: colors.background, elevation: 2 },
   backButton: { padding: 5 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primary },
   scrollContent: { padding: 20 },
   introSection: { marginBottom: 25, alignItems: 'center' },
-  introTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', textAlign: 'center', marginBottom: 10 },
-  introDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22 },
+  introTitle: { fontSize: 22, fontWeight: 'bold', color: colors.primary, textAlign: 'center', marginBottom: 10 },
+  introDesc: { fontSize: 15, color: colors.text, textAlign: 'center', lineHeight: 22 },
   
-  card: { backgroundColor: '#FFF', borderRadius: 20, marginBottom: 25, elevation: 4, overflow: 'hidden' },
+  card: { backgroundColor: colors.background, borderRadius: 20, marginBottom: 25, elevation: 4, overflow: 'hidden' },
   currentBadge: { paddingVertical: 5, alignItems: 'center', justifyContent: 'center' },
-  currentBadgeText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
+  currentBadgeText: { color: colors.background, fontWeight: 'bold', fontSize: 12 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-  planName: { fontSize: 20, fontWeight: 'bold', color: '#FFF' },
-  planPrice: { fontSize: 24, fontWeight: 'bold', color: '#FFF', marginTop: 5 },
+  planName: { fontSize: 20, fontWeight: 'bold', color: colors.background },
+  planPrice: { fontSize: 24, fontWeight: 'bold', color: colors.background, marginTop: 5 },
   planPeriod: { fontSize: 14, fontWeight: 'normal' },
   
   cardBody: { padding: 20 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  benefitText: { marginLeft: 10, fontSize: 15, color: '#444', flex: 1 },
+  benefitText: { marginLeft: 10, fontSize: 15, color: colors.text, flex: 1 },
   
   subscribeBtn: { padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 10 },
-  subscribeBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
+  subscribeBtnText: { color: colors.background, fontWeight: 'bold', fontSize: 16 }
 });

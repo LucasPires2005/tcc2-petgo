@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -187,7 +188,7 @@ export default function RegisterScreen({ navigation }) {
             <Ionicons
               name={agreed ? "checkbox" : "square-outline"}
               size={24}
-              color={agreed ? "#2ECC71" : "#999"}
+              color={agreed ? colors.success : "#999"}
             />
           </TouchableOpacity>
           <Text style={styles.checkboxText}>
@@ -225,11 +226,11 @@ export default function RegisterScreen({ navigation }) {
           animationType="slide"
           onRequestClose={() => setTermsVisible(false)}
         >
-          <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Termos de Uso</Text>
               <TouchableOpacity onPress={() => setTermsVisible(false)}>
-                <Ionicons name="close-circle" size={30} color="#333" />
+                <Ionicons name="close-circle" size={30} color={colors.text} />
               </TouchableOpacity>
             </View>
             <ScrollView
@@ -272,7 +273,7 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -283,25 +284,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.primary,
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.primary,
     marginBottom: 30,
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.surface,
     padding: 18,
     borderRadius: 12,
     marginBottom: 15,
     borderWidth: 1,
     borderColor: '#EEE',
-    color: '#333',
+    color: colors.text,
   },
   button: {
-    backgroundColor: '#2ECC71',
+    backgroundColor: colors.success,
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: '#FFF',
+    color: colors.background,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: {
-    color: '#666',
+    color: colors.text,
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -334,11 +335,11 @@ const styles = StyleSheet.create({
   },
   checkboxText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text,
     flex: 1,
   },
   linkTerms: {
-    color: '#4A90E2',
+    color: colors.primary,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.primary,
   },
   termsContent: {
     padding: 25,
@@ -361,24 +362,24 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 15,
-    color: '#444',
+    color: colors.text,
     lineHeight: 24,
     textAlign: 'justify',
   },
   termsBold: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#222',
+    color: colors.text,
   },
   termsButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: colors.action,
     padding: 18,
     marginTop: 24,
     borderRadius: 12,
     alignItems: 'center',
   },
   termsButtonText: {
-    color: '#FFF',
+    color: colors.background,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -391,13 +392,13 @@ const styles = StyleSheet.create({
   confirmationTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#4A90E2',
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: 20,
   },
   confirmationText: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 15,
     lineHeight: 24,
@@ -405,10 +406,10 @@ const styles = StyleSheet.create({
   emailDisplay: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2C3E50',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 20,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.surface,
     padding: 15,
     borderRadius: 8,
   },

@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Constants from 'expo-constants';
@@ -28,7 +29,7 @@ function ExpoGoMap({
     >
       <NativeMarker coordinate={location}>
         <View style={[styles.userMarker, isPremium && styles.userMarkerPremium]}>
-          <Ionicons name={isPremium ? 'star' : 'person'} size={20} color="#FFF" />
+          <Ionicons name={isPremium ? 'star' : 'person'} size={20} color={colors.background} />
         </View>
       </NativeMarker>
 
@@ -39,14 +40,14 @@ function ExpoGoMap({
           onPress={() => onSelectAnimal(animal)}
         >
           <View style={[styles.petMarker, { backgroundColor: animal.markerColor }]}>
-            <Ionicons name="paw" size={16} color="#FFF" />
+            <Ionicons name="paw" size={16} color={colors.background} />
           </View>
         </NativeMarker>
       ))}
 
       {selectedLocation && (
         <NativeMarker coordinate={selectedLocation}>
-          <Ionicons name="location" size={40} color="#2ECC71" />
+          <Ionicons name="location" size={40} color={colors.success} />
         </NativeMarker>
       )}
     </MapView>
@@ -99,7 +100,7 @@ export default function PetMap({
 
       <Marker id="current-user" lngLat={userCoordinates}>
         <View style={[styles.userMarker, isPremium && styles.userMarkerPremium]}>
-          <Ionicons name={isPremium ? 'star' : 'person'} size={20} color="#FFF" />
+          <Ionicons name={isPremium ? 'star' : 'person'} size={20} color={colors.background} />
         </View>
       </Marker>
 
@@ -111,7 +112,7 @@ export default function PetMap({
           onPress={() => onSelectAnimal(animal)}
         >
           <View style={[styles.petMarker, { backgroundColor: animal.markerColor }]}>
-            <Ionicons name="paw" size={16} color="#FFF" />
+            <Ionicons name="paw" size={16} color={colors.background} />
           </View>
         </Marker>
       ))}
@@ -121,7 +122,7 @@ export default function PetMap({
           id="selected-location"
           lngLat={[selectedLocation.longitude, selectedLocation.latitude]}
         >
-          <Ionicons name="location" size={40} color="#2ECC71" />
+          <Ionicons name="location" size={40} color={colors.success} />
         </Marker>
       )}
     </Map>
@@ -131,17 +132,17 @@ export default function PetMap({
 const styles = StyleSheet.create({
   map: { flex: 1 },
   userMarker: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: colors.primary,
     padding: 6,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: '#FFF'
+    borderColor: colors.background
   },
   userMarkerPremium: { backgroundColor: '#FFD700', borderColor: '#B8860B' },
   petMarker: {
     padding: 6,
     borderRadius: 15,
     borderWidth: 2,
-    borderColor: '#FFF'
+    borderColor: colors.background
   }
 });

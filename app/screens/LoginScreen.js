@@ -9,10 +9,12 @@ import {
   Platform,
   Alert,
   Modal,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import { colors } from '../theme/colors';
 
 export default function LoginScreen({ navigation }) {
   const { login, requestPasswordReset } = useContext(AuthContext);
@@ -70,13 +72,14 @@ export default function LoginScreen({ navigation }) {
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.logo}>PetGo 🐾</Text>
+          <Image source={require('../assets/LogoPetGo.png')} style={styles.logo}
+            resizeMode="contain" accessible accessibilityLabel="PetGo — Conecta, ajuda, transforma" />
           <Text style={styles.subtitle}>Ajude a salvar vidas no mapa</Text>
 
           <View style={styles.inputContainer}>
             <TextInput 
               placeholder="E-mail" 
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.primary}
               style={styles.input} 
               onChangeText={setEmail}
               value={email}
@@ -86,7 +89,7 @@ export default function LoginScreen({ navigation }) {
             />
             <PasswordInput
               placeholder="Senha" 
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.primary}
               style={styles.input} 
               onChangeText={setPassword}
               value={password}
@@ -150,7 +153,7 @@ export default function LoginScreen({ navigation }) {
 
                 <TextInput
                   placeholder="Seu e-mail"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.primary}
                   style={styles.input}
                   onChangeText={setResetEmail}
                   value={resetEmail}
@@ -177,7 +180,7 @@ export default function LoginScreen({ navigation }) {
                   }}
                   disabled={isResettingPassword}
                 >
-                  <Text style={styles.buttonSecondaryText}>Cancelar</Text>
+                  <Text style={[styles.buttonSecondaryText, styles.cancelText]}>Cancelar</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -191,43 +194,45 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
   },
   inner: {
     flexGrow: 1,
-    padding: 30,
-    paddingBottom: 48,
+    paddingHorizontal: 30,
+    paddingTop: 20,
+    paddingBottom: 24,
     justifyContent: 'center',
     alignItems: 'stretch',
   },
   logo: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#4A90E2',
-    textAlign: 'center',
-    marginBottom: 5,
+    width: 160,
+    height: 160,
+    maxWidth: '100%',
+    flexShrink: 0,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.surface,
     padding: 18,
     borderRadius: 12,
     fontSize: 16,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#EEE',
-    color: '#333',
+    borderColor: colors.surface,
+    color: colors.text,
   },
   buttonPrimary: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: colors.action,
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -237,11 +242,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
   },
   buttonDisabled: {
-    backgroundColor: '#B0C4E2',
     opacity: 0.7,
   },
   buttonText: {
-    color: '#FFF',
+    color: colors.background,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -250,7 +254,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonForgotText: {
-    color: '#E74C3C',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -259,7 +263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonSecondaryText: {
-    color: '#4A90E2',
+    color: colors.primary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -272,7 +276,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalContent: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -286,15 +290,18 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4A90E2',
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: 15,
   },
   modalDescription: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 25,
     lineHeight: 20,
+  },
+  cancelText: {
+    color: colors.danger,
   },
 });

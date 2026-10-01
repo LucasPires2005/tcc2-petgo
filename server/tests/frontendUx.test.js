@@ -140,7 +140,8 @@ test('senhas: oito campos usam controle independente sem alterar callbacks', () 
   assert.match(source, /secureTextEntry=\{!visible\}/);
 });
 
-test('resgate: contraste explícito nos dois inputs e rolagem limitada à altura da modal', () => {
+test('resgate: contraste explícito nos dois inputs e rolagem limitada à altura da modal', async () => {
+  const { colors } = await import(`data:text/javascript;base64,${Buffer.from(read('app/theme/colors.js')).toString('base64')}`);
   const source = read('app/screens/MapScreen.js');
   for (const label of ['Seu Nome', 'WhatsApp']) {
     const input = source.split('\n').find(line => line.includes(`placeholder="${label}"`));
@@ -148,7 +149,7 @@ test('resgate: contraste explícito nos dois inputs e rolagem limitada à altura
     assert.match(input, /styles.rescueInput/);
     assert.match(input, /underlineColorAndroid="transparent"/);
   }
-  const styles = vm.runInNewContext(`${source.slice(source.indexOf('const styles = StyleSheet.create'))}; styles;`, { StyleSheet: { create: value => value } });
+  const styles = vm.runInNewContext(`${source.slice(source.indexOf('const styles = StyleSheet.create'))}; styles;`, { colors, StyleSheet: { create: value => value } });
   assert.equal(styles.rescueInput.color, '#1F2937');
   assert.equal(styles.rescueInput.backgroundColor, '#F8FAFC');
   assert.equal(styles.rescueInput.opacity, 1);

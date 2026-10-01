@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useContext, useEffect, useState } from 'react';
 import { Alert, AppState, Text, TouchableOpacity, View } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
@@ -26,16 +27,16 @@ export default function SubscriptionBenefits({ user }) {
         try { await cancelSubscription(kind); } finally { setBusy(false); }
       } }
     ]);
-  return <View style={{ padding: 16, backgroundColor: '#FFF', borderRadius: 12, marginVertical: 12 }}>
+  return <View style={{ padding: 16, backgroundColor: colors.background, borderRadius: 12, marginVertical: 12 }}>
     {['plan', 'premium'].map(kind => {
       const label = kind === 'plan' ? 'Plano' : 'PRO';
       const item = benefits[kind];
       return <View key={kind} style={{ marginVertical: 8 }}>
-        <Text style={{ fontWeight: 'bold', color: '#333' }}>{label}</Text>
-        <Text style={{ color: item.status === 'EXPIRED' ? '#B03A2E' : '#555', marginTop: 4 }}>{item.text}</Text>
+        <Text style={{ fontWeight: 'bold', color: colors.text }}>{label}</Text>
+        <Text style={{ color: item.status === 'EXPIRED' ? colors.danger : colors.text, marginTop: 4 }}>{item.text}</Text>
         {item.canCancel && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Cancelar assinatura ${label}`}
           disabled={busy} onPress={() => cancel(kind, label)} style={{ paddingVertical: 12 }}>
-          <Text style={{ color: '#B03A2E' }}>{busy ? 'Aguarde…' : `Cancelar Assinatura (${label})`}</Text>
+          <Text style={{ color: colors.danger }}>{busy ? 'Aguarde…' : `Cancelar Assinatura (${label})`}</Text>
         </TouchableOpacity>}
       </View>;
     })}

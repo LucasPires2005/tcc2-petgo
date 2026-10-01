@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useContext, useState } from 'react';
 import {
   View,
@@ -153,7 +154,7 @@ export default function ResetPasswordScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF'
+    backgroundColor: colors.background
   },
   scrollContent: {
     flexGrow: 1,
@@ -167,20 +168,20 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 42,
     fontWeight: 'bold',
-    color: '#4A90E2',
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: 15
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: 10
   },
   description: {
     fontSize: 16,
-    color: '#666',
+    color: colors.text,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 30
@@ -198,28 +199,28 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.surface,
     padding: 18,
     borderRadius: 12,
     fontSize: 16,
     marginBottom: 15,
     borderWidth: 1,
     borderColor: '#EEE',
-    color: '#333'
+    color: colors.text
   },
   button: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: colors.action,
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 5
   },
   buttonDisabled: {
-    backgroundColor: '#B0C4E2',
+    backgroundColor: colors.action,
     opacity: 0.7
   },
   buttonText: {
-    color: '#FFF',
+    color: colors.background,
     fontSize: 17,
     fontWeight: 'bold'
   },
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   backButtonText: {
-    color: '#4A90E2',
+    color: colors.primary,
     fontSize: 15,
     fontWeight: '600'
   }

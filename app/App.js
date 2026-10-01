@@ -1,10 +1,11 @@
 import React, { useContext, useEffect, useRef } from 'react';
 import { Alert, Linking } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { colors } from './theme/colors';
 
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { CheckoutProvider } from './context/CheckoutContext';
@@ -21,12 +22,27 @@ import SubscriptionScreen from './screens/SubscriptionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.background,
+    text: colors.text,
+    border: colors.surface,
+    notification: colors.action
+  }
+};
 
 function Tabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.text,
+        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.surface },
         tabBarIcon: ({ color, size }) => {
           let icon;
 
@@ -164,6 +180,7 @@ function Routes() {
 
   return (
     <NavigationContainer
+      theme={navigationTheme}
       ref={navigationRef}
       onReady={handleNavigationReady}
     >

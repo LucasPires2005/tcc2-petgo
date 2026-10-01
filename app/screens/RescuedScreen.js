@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,7 @@ export default function RescuedScreen() {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardInfo}><Text style={styles.animalName}>{item.name}</Text><Text style={styles.infoText}>{item.species} • Resgatado por {item.rescuer_name || 'Herói'}</Text></View>
-            <Ionicons name="heart" size={24} color="#E74C3C" />
+            <Ionicons name="heart" size={24} color={colors.action} />
           </View>
         )}
       />
@@ -30,13 +31,13 @@ export default function RescuedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderColor: '#EEE', paddingTop: 60 },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { padding: 20, backgroundColor: colors.background, borderBottomWidth: 1, borderColor: '#EEE', paddingTop: 60 },
   title: { fontSize: 24, fontWeight: 'bold' },
-  subtitle: { fontSize: 14, color: '#666' },
-  card: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 3 },
+  subtitle: { fontSize: 14, color: colors.primary },
+  card: { backgroundColor: colors.background, padding: 20, borderRadius: 15, marginBottom: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 3 },
   cardInfo: { flex: 1 },
   animalName: { fontSize: 18, fontWeight: 'bold' },
-  infoText: { color: '#666' },
+  infoText: { color: colors.text },
   empty: { textAlign: 'center', marginTop: 50, color: '#999' }
 });
