@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -16,17 +16,30 @@ import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
 import FormField, { FormNotice } from '../components/FormField';
 import { colors } from '../theme/colors';
+import { GOOGLE_SOCIAL_ENABLED, cancelSocialLogin } from '../services/socialAuth';
 
 export default function LoginScreen({ navigation }) {
-  const { login, requestPasswordReset } = useContext(AuthContext);
+  const { login, requestPasswordReset, loginWithGoogle } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [forgotPasswordModalVisible, setForgotPasswordModalVisible] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const loginLock = useRef(false);
+  const active = useRef(true);
+  const socialHandoff = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    const blur = navigation.addListener('blur', () => { if (!socialHandoff.current) cancelSocialLogin(); });
+    const focus = navigation.addListener('focus', () => { socialHandoff.current = false; });
+    return () => { active.current = false; cancelSocialLogin(); blur(); focus(); };
+  }, [navigation]);
+  const authBusy = isLoading || isGoogleLoading;
 
   const handleLogin = async () => {
+    if (loginLock.current) return;
     if (!email || !password) {
       return Alert.alert('Atenção', 'Preencha todos os campos para entrar.');
     }
@@ -36,9 +49,30 @@ export default function LoginScreen({ navigation }) {
       return Alert.alert('E-mail Inválido', 'Por favor, insira um e-mail no formato correto (ex: usuario@email.com).');
     }
 
+    loginLock.current = true;
     setIsLoading(true);
-    await login(email.trim(), password);
-    setIsLoading(false);
+    try { await login(email.trim(), password); }
+    finally { loginLock.current = false; if (active.current) setIsLoading(false); }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (loginLock.current) return;
+    loginLock.current = true;
+    setIsGoogleLoading(true);
+    try {
+      const result = await loginWithGoogle();
+      if (active.current && result.requiresOnboarding) {
+        socialHandoff.current = true;
+        navigation.navigate('SocialOnboarding');
+      }
+    } catch (error) {
+      if (active.current && error.code !== 'SOCIAL_CANCELLED') {
+        Alert.alert('Acesso com Google', error.message || 'Não foi possível entrar. Tente novamente.');
+      }
+    } finally {
+      loginLock.current = false;
+      if (active.current) setIsGoogleLoading(false);
+    }
   };
 
   const handleForgotPassword = async () => {
@@ -88,7 +122,7 @@ export default function LoginScreen({ navigation }) {
                 value={email}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                editable={!isLoading}
+                editable={!authBusy}
               />
             </FormField>
             <FormField label="Senha" required help="Use o botão de olho para conferir a senha digitada.">
@@ -98,25 +132,33 @@ export default function LoginScreen({ navigation }) {
                 style={styles.input}
                 onChangeText={setPassword}
                 value={password}
-                editable={!isLoading}
+                editable={!authBusy}
               />
             </FormField>
           </View>
 
           <TouchableOpacity 
-            style={[styles.buttonPrimary, isLoading && styles.buttonDisabled]} 
+            style={[styles.buttonPrimary, authBusy && styles.buttonDisabled]}
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={authBusy}
           >
             <Text style={styles.buttonText}>
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Text>
           </TouchableOpacity>
 
+          {GOOGLE_SOCIAL_ENABLED && <TouchableOpacity
+            accessibilityRole="button" accessibilityLabel="Continuar com Google"
+            accessibilityState={{ disabled: authBusy, busy: isGoogleLoading }}
+            style={[styles.buttonGoogle, authBusy && styles.buttonDisabled]}
+            disabled={authBusy} onPress={handleGoogleLogin}>
+            <Text style={styles.buttonGoogleText}>{isGoogleLoading ? 'Conectando ao Google...' : 'Continuar com Google'}</Text>
+          </TouchableOpacity>}
+
           <TouchableOpacity 
             style={styles.buttonForgot}
             onPress={() => setForgotPasswordModalVisible(true)}
-            disabled={isLoading}
+            disabled={authBusy}
           >
             <Text style={styles.buttonForgotText}>Esqueci minha senha</Text>
           </TouchableOpacity>
@@ -124,7 +166,7 @@ export default function LoginScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.buttonSecondary}
             onPress={() => navigation.navigate('Cadastro')}
-            disabled={isLoading}
+            disabled={authBusy}
           >
             <Text style={styles.buttonSecondaryText}>Não tem conta? Cadastre-se</Text>
           </TouchableOpacity>
@@ -252,6 +294,20 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  buttonGoogle: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.background,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  buttonGoogleText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonText: {
     color: colors.background,

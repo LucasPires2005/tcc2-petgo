@@ -118,6 +118,7 @@ test('marca: handlers do Login preservam payloads, validações e recuperação'
     login: async (...args) => calls.push(['login', ...args]),
     requestPasswordReset: async (...args) => { calls.push(['reset', ...args]); return true; },
     setIsLoading() {}, setIsResettingPassword() {},
+    loginLock: { current: false }, active: { current: true },
     setResetEmail: value => calls.push(['email', value]),
     setForgotPasswordModalVisible: value => calls.push(['modal', value]),
     Alert: { alert: () => assert.fail('Dados válidos não devem exibir erro') }

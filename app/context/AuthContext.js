@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useRef } from 'react';
 import { Alert, AppState } from 'react-native';
 import { performActivation } from '../services/subscriptionApi';
 import { mobileFetch, setMobileSession, onMobileSessionInvalid, API_BASE_URL } from '../services/mobileApi';
+import { beginGoogleLogin, completeSocialRegistration, cancelSocialLogin, hasPendingSocialRegistration, captureSocialLoginGuard } from '../services/socialAuth';
 
 export const AuthContext = createContext();
 
@@ -143,6 +144,7 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
+    cancelSocialLogin();
     const cleanEmail = email.trim().toLowerCase();
     try {
       const res = await fetch(`${BASE_URL}/auth/login`, {
@@ -164,6 +166,32 @@ export function AuthProvider({ children }) {
         Alert.alert('Erro', data.error || 'E-mail ou senha incorretos'); 
       }
     } catch (error) { Alert.alert('Erro', 'Conexão falhou.'); }
+  }
+
+  function acceptSocialSession(data) {
+    const { accessToken, ...profile } = data;
+    ++profileVersion.current;
+    setMobileSession(accessToken);
+    setUser(profile);
+    fetchAnimals();
+  }
+
+  async function loginWithGoogle() {
+    const attempt = beginGoogleLogin();
+    const ensureCurrent = captureSocialLoginGuard();
+    const result = await attempt;
+    ensureCurrent();
+    if (!result.cancelled && !result.requiresOnboarding) acceptSocialSession(result);
+    return result;
+  }
+
+  async function completeGoogleRegistration(declaration) {
+    const attempt = completeSocialRegistration(declaration);
+    const ensureCurrent = captureSocialLoginGuard();
+    const result = await attempt;
+    ensureCurrent();
+    acceptSocialSession(result);
+    return true;
   }
 
   async function register(name, email, password, declaration) {
@@ -325,9 +353,10 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
+      loginWithGoogle, completeGoogleRegistration, cancelSocialLogin, hasPendingSocialRegistration,
       buyPremium, donateCoins, cancelSubscription, deleteAccount, awardCoins,
       resendConfirmationEmail, requestPasswordReset, resetPasswordWithToken,
-      logout: () => { setMobileSession(null); setUser(null); setAnimals([]); }
+      logout: () => { cancelSocialLogin(); setMobileSession(null); setUser(null); setAnimals([]); }
     }}>
       {children}
     </AuthContext.Provider>

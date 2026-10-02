@@ -9,8 +9,9 @@ const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/r
 const { normalizeCheckout, referenceIdentity, publicBaseUrl } = require('../services/checkout');
 const { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, operationKey, activateSubscription, activatePayment, cancelSubscription } = require('../services/subscriptions');
 const { prepareEligibility, readEligibility, persistEligibility, eligibilityFailure } = require('../services/eligibility');
+const { createSocialHandlers } = require('../services/socialAuth');
 
-const publicPaths = new Set(['/login', '/register', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
+const publicPaths = new Set(['/login', '/register', '/social-login', '/social-complete', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
 const requireMobileUser = createRequireMobileUser({ db });
 router.use((req, res, next) => {
   if (publicPaths.has(req.path.replace(/\/$/, '').toLowerCase())) return next();
@@ -39,6 +40,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
 
 const EMAIL_CONFIRMATION_REDIRECT_URL = 'petgo://auth/callback';
 const PASSWORD_RESET_REDIRECT_URL = 'petgo://auth/reset-password';
+
+// Public only with respect to PetGo JWT: both handlers authenticate the Supabase credential.
+const socialHandlers = createSocialHandlers({ db, supabase });
+router.post('/social-login', socialHandlers.login);
+router.post('/social-complete', socialHandlers.complete);
 
 // Helpers para utilizar o adaptador atual do banco com async/await
 function getOne(sql, params = []) {

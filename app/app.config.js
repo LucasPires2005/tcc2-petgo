@@ -11,6 +11,7 @@ module.exports = {
   },
   plugins: [
     ...(appJson.expo.plugins || []),
+    'expo-web-browser',
     [
       'expo-location',
       {

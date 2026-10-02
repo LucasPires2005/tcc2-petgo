@@ -13,6 +13,7 @@ import { CheckoutProvider } from './context/CheckoutContext';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
+import SocialOnboardingScreen from './screens/SocialOnboardingScreen';
 import MapScreen from './screens/MapScreen';
 import NearbyScreen from './screens/NearbyScreen';
 import RescuedScreen from './screens/RescuedScreen';
@@ -198,6 +199,7 @@ function Routes() {
         <Stack.Navigator>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Cadastro" component={RegisterScreen} />
+          <Stack.Screen name="SocialOnboarding" component={SocialOnboardingScreen} options={{ headerShown: false }} />
           <Stack.Screen
             name="ResetPassword"
             component={ResetPasswordScreen}

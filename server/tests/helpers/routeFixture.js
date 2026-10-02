@@ -123,6 +123,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     '../services/credentialValidation': require('../../services/credentialValidation'),
     '../services/eligibility': require('../../services/eligibility'),
     '../services/eligibilityValidation': require('../../services/eligibilityValidation'),
+    '../services/socialAuth': require('../../services/socialAuth'),
     '../services/animalCreationLimit': require('../../services/animalCreationLimit'),
     './animalAuthorDeletion': require('../../routes/animalAuthorDeletion'),
     '../services/emailConfirmationSettings': { async requireEmailConfirmation() {
