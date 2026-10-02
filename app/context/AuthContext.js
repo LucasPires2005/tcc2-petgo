@@ -88,25 +88,6 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function subscribeToPlan(planTier) {
-    if (!user) return false;
-    ++profileVersion.current;
-    try {
-      const { response, data } = await performActivation(user.id, 'subscribe-plan', { planTier });
-      if (response.ok) {
-        ++profileVersion.current;
-        setUser(data.user);
-        Alert.alert("Sucesso! 🎉", data.message);
-        return true;
-      }
-      if (!['SESSION_INVALID', 'ACCOUNT_BANNED'].includes(data.code)) Alert.alert('Erro', data.error || 'Falha ao processar assinatura.');
-      return false;
-    } catch (e) { 
-      Alert.alert("Erro", e.message || "Falha ao processar assinatura.");
-      return false; 
-    }
-  }
-
   async function cancelSubscription(kind) {
     if (!user) return false;
     ++profileVersion.current;
@@ -343,7 +324,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ 
       user, setUser, animals, fetchAnimals, refreshUserData, 
       login, register, updateAccount, changePassword, redeemReward, 
-      buyPremium, donateCoins, subscribeToPlan, cancelSubscription, deleteAccount, awardCoins,
+      buyPremium, donateCoins, cancelSubscription, deleteAccount, awardCoins,
       resendConfirmationEmail, requestPasswordReset, resetPasswordWithToken,
       logout: () => { setMobileSession(null); setUser(null); setAnimals([]); }
     }}>

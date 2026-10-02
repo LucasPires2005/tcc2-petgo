@@ -29,6 +29,7 @@ import PetMap from '../components/PetMap';
 import PhotoSourceOptions from '../components/PhotoSourceOptions';
 import { selectAnimalPhoto } from '../services/photoSelection';
 import AnimalDeletionForm from '../components/AnimalDeletionForm';
+import FormField, { FormNotice, FieldLabel } from '../components/FormField';
 import { isAnimalAuthor } from '../services/animalDeletion';
 
 // Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
@@ -172,7 +173,7 @@ export default function MapScreen() {
     try {
       await startCheckout({
           userId: user?.id,
-          title: `Apoio PetGo - ${selectedAnimal?.name ? 'Animal: ' + selectedAnimal.name : 'Causa Animal'}`,
+          title: 'Apoio à manutenção da plataforma PetGo',
           price: numericAmount,
           quantity: 1,
           type: 'donation'
@@ -445,8 +446,8 @@ export default function MapScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.drawerSectionTitle}>Sobre o registro:</Text>
-                  <Text style={styles.drawerDescription}>Este animal precisa de ajuda. Faça uma doação para apoiar o resgate e tratamento.</Text>
+                  <Text style={styles.drawerSectionTitle}>Apoie a causa PetGo</Text>
+                  <Text style={styles.drawerDescription}>Sua contribuição apoia a manutenção da plataforma PetGo, que conecta pessoas e mapeia animais em situação de vulnerabilidade. Os valores não são destinados diretamente a este animal.</Text>
                   <View style={styles.drawerActions}>
                     <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color={colors.background} /></TouchableOpacity>
                     <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>
@@ -463,23 +464,27 @@ export default function MapScreen() {
       </Modal>
 
       {/* Modal Customizado de Doação Mercado Pago */}
-      <Modal visible={donateModalVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlayCenter}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.donateCard}>
+      <Modal visible={donateModalVisible} animationType="fade" transparent={true} onRequestClose={() => setDonateModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlayCenter}>
+          <View style={[styles.donateCard, { maxHeight: '95%' }]}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
             <View style={styles.donateHeader}>
               <View style={styles.heartCircle}>
                 <Ionicons name="heart" size={32} color={colors.action} />
               </View>
-              <Text style={styles.donateTitle}>Fazer uma Doação ❤️</Text>
-              <Text style={styles.donateSubtitle}>Sua contribuição ajuda nos cuidados e tratamento de {selectedAnimal?.name || 'animais resgatados'}.</Text>
+              <Text style={styles.donateTitle}>Apoiar o PetGo ❤️</Text>
+              <Text style={styles.donateSubtitle}>O apoio é destinado à manutenção da plataforma e de sua infraestrutura, sem repasse direto ao animal deste registro.</Text>
+              <Text style={styles.donateSubtitle}>Demonstração acadêmica: pagamento em ambiente de testes, sem cobrança real.</Text>
             </View>
 
-            <Text style={styles.presetLabel}>Escolha ou digite um valor:</Text>
+            <FormNotice allRequired />
+            <FieldLabel label="Valor do apoio (R$)" required help="Escolha um valor sugerido ou digite um valor maior que zero." />
              
             <View style={styles.presetContainer}>
               {['5', '10', '25', '50'].map(val => (
                 <TouchableOpacity 
                   key={val} 
+                  accessibilityRole="radio" accessibilityLabel={`Apoiar com ${val} reais`} accessibilityState={{ checked: donationAmount === val }}
                   style={[styles.presetChip, donationAmount === val && styles.presetChipSelected]}
                   onPress={() => setDonationAmount(val)}
                 >
@@ -491,6 +496,7 @@ export default function MapScreen() {
             <View style={styles.customAmountContainer}>
               <Text style={styles.currencyPrefix}>R$</Text>
               <TextInput 
+                accessibilityLabel="Valor do apoio em reais, obrigatório"
                 style={styles.customAmountInput} 
                 keyboardType="numeric" 
                 value={donationAmount} 
@@ -518,8 +524,9 @@ export default function MapScreen() {
             <TouchableOpacity onPress={() => setDonateModalVisible(false)} style={styles.closeDonateBtn}>
               <Text style={styles.closeDonateText}>Cancelar</Text>
             </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal Novo Registro */}
@@ -551,18 +558,23 @@ export default function MapScreen() {
                   showsVerticalScrollIndicator={false}
                 >
                   <Text style={styles.modalTitle}>Novo Registro 🐾</Text>
+                  <FormNotice />
+                  <FormField label="Nome ou característica" help="Não sabe o nome? Use uma característica, como Caramelo perto da praça.">
                   <TextInput placeholder="Nome" placeholderTextColor="#999" value={name} onChangeText={setName} style={styles.input} />
+                  </FormField>
+                  <FieldLabel label="Espécie" required />
                   <View style={styles.row}>
-                    <TouchableOpacity style={[styles.tag, species === 'Cachorro' && styles.tagSelected]} onPress={() => setSpecies('Cachorro')}><Text style={[styles.tagText, species === 'Cachorro' && styles.tagTextSelected]}>🐶 Cachorro</Text></TouchableOpacity>
-                    <TouchableOpacity style={[styles.tag, species === 'Gato' && styles.tagSelected]} onPress={() => setSpecies('Gato')}><Text style={[styles.tagText, species === 'Gato' && styles.tagTextSelected]}>🐱 Gato</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityRole="radio" accessibilityState={{ checked: species === 'Cachorro' }} style={[styles.tag, species === 'Cachorro' && styles.tagSelected]} onPress={() => setSpecies('Cachorro')}><Text style={[styles.tagText, species === 'Cachorro' && styles.tagTextSelected]}>🐶 Cachorro</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityRole="radio" accessibilityState={{ checked: species === 'Gato' }} style={[styles.tag, species === 'Gato' && styles.tagSelected]} onPress={() => setSpecies('Gato')}><Text style={[styles.tagText, species === 'Gato' && styles.tagTextSelected]}>🐱 Gato</Text></TouchableOpacity>
                   </View>
 
                   {/* ADIÇÃO: Seleção de Urgência no Cadastro */}
-                  <Text style={{fontWeight: 'bold', marginBottom: 10, color: colors.text}}>Nível de Urgência:</Text>
+                  <FieldLabel label="Nível de urgência" required help="Selecione a situação aparente: Estável, Alerta ou Crítico. A opção inicial é Estável." />
                   <View style={styles.row}>
                     {['Estável', 'Alerta', 'Crítico'].map(level => (
                       <TouchableOpacity 
                         key={level} 
+                        accessibilityRole="radio" accessibilityState={{ checked: urgency === level }}
                         style={[styles.tag, urgency === level && {backgroundColor: level === 'Crítico' ? '#E74C3C' : level === 'Alerta' ? '#F1C40F' : '#2ECC71'}]} 
                         onPress={() => setUrgency(level)}
                       >
@@ -571,9 +583,14 @@ export default function MapScreen() {
                     ))}
                   </View>
 
-                  <TextInput placeholder="Raça" placeholderTextColor="#999" value={breed} onChangeText={setBreed} style={styles.input} />
-                  <TextInput placeholder="Saúde" placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
-                  <TouchableOpacity onPress={pickImage} style={styles.imagePickerBtn}>
+                  <FormField label="Raça" help="Não tem certeza? Informe Não identificada ou descreva o animal.">
+                    <TextInput placeholder="Raça" placeholderTextColor="#999" value={breed} onChangeText={setBreed} style={styles.input} />
+                  </FormField>
+                  <FormField label="Estado de saúde aparente" required help="Descreva apenas o que consegue observar. Não é necessário fazer um diagnóstico.">
+                    <TextInput placeholder="Saúde" placeholderTextColor="#999" value={health} onChangeText={setHealth} style={styles.input} />
+                  </FormField>
+                  <FieldLabel label="Foto do animal" required help="Use uma foto nítida do animal, sem rostos humanos em destaque. Você pode usar a câmera ou a galeria." />
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={image ? 'Trocar foto do animal' : 'Adicionar foto do animal, obrigatório'} onPress={pickImage} style={styles.imagePickerBtn}>
                     {image ? <Image source={{ uri: image.uri }} style={styles.previewImage} /> : <Text style={{color: '#999'}}>📸 Adicionar Foto</Text>}
                   </TouchableOpacity>
                   {photoSourceTarget === 'animal' && <PhotoSourceOptions
@@ -605,11 +622,16 @@ export default function MapScreen() {
           <View style={styles.rescueModal}>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
             <Text style={styles.modalTitle}>Validar Resgate ❤️</Text>
+            <FormNotice allRequired />
+            <FormField label="Seu nome completo" required>
             <TextInput placeholder="Seu Nome" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerName} onChangeText={setRescuerName} style={[styles.input, styles.rescueInput]} />
+            </FormField>
+            <FormField label="WhatsApp com DDD" required help="Informe um número com DDD para contato sobre este resgate.">
             <TextInput placeholder="WhatsApp" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerContact} onChangeText={setRescuerContact} style={[styles.input, styles.rescueInput]} keyboardType="phone-pad" />
+            </FormField>
              
-            <Text style={{fontWeight:'bold', marginBottom:10, color:colors.text}}>Foto de Prova (Final Feliz) 📸</Text>
-            <TouchableOpacity onPress={pickRescueImage} style={styles.imagePickerMini}>
+            <FieldLabel label="Foto de comprovação do resgate" required help="Registre o animal após o resgate. Evite rostos humanos em destaque na foto." />
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={rescueImage ? 'Trocar foto do resgate' : 'Adicionar foto do resgate, obrigatório'} onPress={pickRescueImage} style={styles.imagePickerMini}>
               {rescueImage ? <Image source={{ uri: rescueImage.uri }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
             </TouchableOpacity>
             {photoSourceTarget === 'rescue' && <PhotoSourceOptions

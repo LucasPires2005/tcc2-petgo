@@ -7,10 +7,10 @@ const read = file => fs.readFileSync(path.resolve(__dirname, '../../app', file),
 const palette = import(`data:text/javascript;base64,${Buffer.from(read('theme/colors.js')).toString('base64')}`);
 const login = read('screens/LoginScreen.js');
 
-test('hierarquia: Coins dourado, Mercado Pago vinho, Pix verde e Apoiar outline', async () => {
+test('hierarquia: Coins dourado, Mercado Pago vinho e Apoiar outline', async () => {
   const { colors } = await palette;
   const account = read('screens/AccountScreen.js');
-  for (const [method, token] of [['COINS', 'coins'], ['MERCADO_PAGO', 'action'], ['PIX', 'success']]) {
+  for (const [method, token] of [['COINS', 'coins'], ['MERCADO_PAGO', 'action']]) {
     const button = account.slice(0, account.indexOf(`onPress={() => processPhysicalPurchase('${method}')}`));
     assert.ok(button.includes('style={[styles.btnSave'));
     assert.match(button.slice(button.lastIndexOf('style={[styles.btnSave')), new RegExp(`backgroundColor: colors\\.${token}\\b`));

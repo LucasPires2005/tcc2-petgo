@@ -74,16 +74,19 @@ test('falha após inserir evento desfaz registro, prazo e débito; webhook pede 
   assert.equal((await f.request('/webhook', { body: { type: 'payment', data: { id: 'payment-test' } } })).status, 503);
   assert.equal(f.state.events.length, 0);
 });
-test('Pix de demonstração exige tier válido e deduplica operationId', async t => {
+test('ativação direta encerrada não concede plano nem altera saldo ou eventos', async t => {
   const f = await routeFixture(t);
   const request = body => f.request('/subscribe-plan', { token: f.token, body });
-  assert.equal((await request({ planTier: 9 })).status, 400);
-  assert.equal((await request({ planTier: 3, operationId: 'bad' })).status, 400);
-  const body = { planTier: 3, operationId: 'operation-pix-000001' };
-  assert.equal((await request(body)).status, 200);
-  assert.equal((await request(body)).body.duplicate, true);
-  assert.equal((await request({ ...body, planTier: 1 })).status, 409);
-  assert.equal(f.state.events.length, 1);
+  const before = (await f.request('/update-status/7', { method: 'GET', token: f.token })).body;
+  assert.equal((await f.request('/subscribe-plan', { body: { planTier: 3 } })).status, 401);
+  for (const body of [{}, { planTier: 9 }, { planTier: 3 }, { planTier: 3, operationId: 'operation-legacy-001' }]) {
+    const result = await request(body);
+    assert.equal(result.status, 410);
+    assert.equal(result.body.code, 'CHECKOUT_REQUIRED');
+  }
+  assert.deepEqual((await f.request('/update-status/7', { method: 'GET', token: f.token })).body, before);
+  assert.equal(f.calls.some(call => call.kind === 'tx'), false);
+  assert.equal(f.state.events.length, 0);
   assert.equal(f.state.coins, 100);
 });
 test('plano expirado não multiplica crédito e perfil de login traz datas sem senha', async t => {

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import FormField, { FormNotice } from '../components/FormField';
 
 export default function ResetPasswordScreen({ route, navigation }) {
   const { user, logout, resetPasswordWithToken } = useContext(AuthContext);
@@ -107,23 +108,28 @@ export default function ResetPasswordScreen({ route, navigation }) {
             </Text>
           )}
 
-          <PasswordInput
-            placeholder="Nova senha"
-            placeholderTextColor="#999"
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            editable={!isLoading && !!token}
-          />
+          <FormNotice allRequired />
+          <FormField label="Nova senha" required help="A nova senha deve ter pelo menos 6 caracteres.">
+            <PasswordInput
+              placeholder="Nova senha"
+              placeholderTextColor="#999"
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              editable={!isLoading && !!token}
+            />
+          </FormField>
 
-          <PasswordInput
-            placeholder="Confirmar nova senha"
-            placeholderTextColor="#999"
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            editable={!isLoading && !!token}
-          />
+          <FormField label="Confirmar nova senha" required help="Digite novamente a nova senha, exatamente como no campo anterior.">
+            <PasswordInput
+              placeholder="Confirmar nova senha"
+              placeholderTextColor="#999"
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              editable={!isLoading && !!token}
+            />
+          </FormField>
 
           <TouchableOpacity
             style={[

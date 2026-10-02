@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import FormField, { FormNotice } from '../components/FormField';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen({ navigation }) {
@@ -141,46 +142,58 @@ export default function RegisterScreen({ navigation }) {
       >
         <Text style={styles.title}>Criar Conta</Text>
         <Text style={styles.subtitle}>Junte-se à nossa comunidade</Text>
+        <FormNotice allRequired />
 
-        <TextInput
-          placeholder="Nome Completo"
-          placeholderTextColor="#999"
-          style={styles.input}
-          onChangeText={setName}
-          value={name}
-          editable={!isLoading}
-        />
-        <TextInput
-          placeholder="E-mail"
-          placeholderTextColor="#999"
-          style={styles.input}
-          onChangeText={setEmail}
-          value={email}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          editable={!isLoading}
-        />
-        <PasswordInput
-          placeholder="Senha (mín. 6 caracteres)"
-          placeholderTextColor="#999"
-          style={styles.input}
-          onChangeText={setPassword}
-          value={password}
-          editable={!isLoading}
-        />
+        <FormField label="Nome completo" required>
+          <TextInput
+            placeholder="Nome Completo"
+            placeholderTextColor="#999"
+            style={styles.input}
+            onChangeText={setName}
+            value={name}
+            editable={!isLoading}
+          />
+        </FormField>
+        <FormField label="E-mail" required help="Use um endereço ao qual você tenha acesso. Será necessário confirmar o link enviado por e-mail.">
+          <TextInput
+            placeholder="E-mail"
+            placeholderTextColor="#999"
+            style={styles.input}
+            onChangeText={setEmail}
+            value={email}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!isLoading}
+          />
+        </FormField>
+        <FormField label="Senha" required help="Use pelo menos 6 caracteres. O botão de olho permite conferir o que foi digitado.">
+          <PasswordInput
+            placeholder="Senha (mín. 6 caracteres)"
+            placeholderTextColor="#999"
+            style={styles.input}
+            onChangeText={setPassword}
+            value={password}
+            editable={!isLoading}
+          />
+        </FormField>
         {/* RECUPERADO: Campo de confirmar senha */}
-        <PasswordInput
-          placeholder="Confirmar Senha"
-          placeholderTextColor="#999"
-          style={styles.input}
-          onChangeText={setConfirmPassword}
-          value={confirmPassword}
-          editable={!isLoading}
-        />
+        <FormField label="Confirmar senha" required help="Digite novamente a mesma senha.">
+          <PasswordInput
+            placeholder="Confirmar Senha"
+            placeholderTextColor="#999"
+            style={styles.input}
+            onChangeText={setConfirmPassword}
+            value={confirmPassword}
+            editable={!isLoading}
+          />
+        </FormField>
 
         {/* RECUPERADO: Checkbox de Termos */}
         <View style={styles.checkboxContainer}>
           <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityLabel="Li e concordo com os Termos de Uso, obrigatório"
+            accessibilityState={{ checked: agreed, disabled: isLoading }}
             onPress={() => setAgreed(!agreed)}
             style={styles.checkbox}
             disabled={isLoading}
@@ -197,7 +210,7 @@ export default function RegisterScreen({ navigation }) {
               style={styles.linkTerms}
               onPress={() => setTermsVisible(true)}
             >
-              Termos de Uso
+              Termos de Uso *
             </Text>
           </Text>
         </View>
@@ -331,6 +344,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   checkbox: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 10,
   },
   checkboxText: {

@@ -154,21 +154,9 @@ router.post('/upgrade-pro', async (req, res) => {
   }
 });
 
-// Pix continua uma simulação acadêmica explícita; não confirma transferência real.
-router.post('/subscribe-plan', async (req, res) => {
-  const { userId, planTier, operationId } = req.body;
-  if (!Number.isInteger(planTier) || ![1, 2, 3].includes(planTier)) {
-    return res.status(400).json({ error: 'Plano inválido.' });
-  }
-  try {
-    const result = await activateSubscription(db, { userId, kind: 'plan', tier: planTier,
-      eventKey: operationKey('pix-demo', userId, operationId), approvedAt: new Date().toISOString(),
-      legacy: operationId === undefined });
-    res.json({ success: true, message: 'Plano ativado com sucesso! 🎉', ...result });
-  } catch (error) {
-    res.status(error.code === 'SUBSCRIPTION_INVALID' ? error.status : 500)
-      .json({ error: error.code === 'SUBSCRIPTION_INVALID' ? error.message : 'Erro ao ativar assinatura.' });
-  }
+// Compatibilidade com versões antigas: planos são ativados pelo checkout confirmado.
+router.post('/subscribe-plan', (req, res) => {
+  res.status(410).json({ error: 'Esta forma de ativação foi encerrada. Use o pagamento pelo Mercado Pago.', code: 'CHECKOUT_REQUIRED' });
 });
 
 for (const [path, field] of [['/donate', 'amount'], ['/redeem', 'cost']]) {

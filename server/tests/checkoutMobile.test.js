@@ -11,6 +11,10 @@ test('pop-up usa retirada/entrega restauradas e não mistura compra e doação',
   assert.match(checkoutMessage({ ...base, type: 'store_purchase', deliveryType: 'ONG', deliveryInfo: 'ONG Centro' }).message, /Retirada em:\nONG Centro/);
   assert.match(checkoutMessage({ ...base, type: 'store_purchase', deliveryType: 'DELIVERY', deliveryInfo: 'Rua 10' }).message, /Entrega no endereço:\nRua 10/);
   assert.match(checkoutMessage({ ...base, type: 'donation' }).title, /apoio/);
+  const support = checkoutMessage({ ...base, type: 'donation', title: 'Tratamento do animal antigo' }).message;
+  assert.match(support, /manutenção da plataforma PetGo/);
+  assert.match(support, /Nenhum valor real foi cobrado/);
+  assert.doesNotMatch(support, /Tratamento do animal antigo/);
   assert.match(checkoutMessage({ ...base, type: 'plan' }).title, /Plano/);
 });
 

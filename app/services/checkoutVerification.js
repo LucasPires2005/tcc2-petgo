@@ -10,7 +10,7 @@ export function checkoutMessage(result) {
     return { title: 'Compra confirmada! 🎉', message: `${result.title}\n\n${logistics}\n\nPagamento: ${result.paymentId}` };
   }
   if (result.type === 'donation') {
-    return { title: 'Obrigado pelo apoio! ❤️', message: `Seu pagamento foi confirmado.\n${result.title}` };
+    return { title: 'Obrigado pelo apoio! ❤️', message: 'A simulação de apoio à manutenção da plataforma PetGo foi concluída. Nenhum valor real foi cobrado e não há repasse direto a um animal específico.' };
   }
   return { title: 'Plano ativado! 🎉', message: `O pagamento de ${result.title} foi confirmado.` };
 }

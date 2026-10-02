@@ -46,7 +46,7 @@ test('confirmação de plano usa texto comercial, preço e ação correta', () =
 function fixture(response, error) {
   const source = fs.readFileSync(path.resolve(__dirname, '../../app/context/AuthContext.js'), 'utf8');
   const start = source.indexOf('  async function buyPremium()');
-  const end = source.indexOf('  async function subscribeToPlan', start);
+  const end = source.indexOf('  async function cancelSubscription', start);
   assert.ok(start >= 0 && end > start);
   const alerts = [];
   const profiles = [];

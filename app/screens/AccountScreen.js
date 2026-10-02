@@ -2,6 +2,7 @@ import { colors } from '../theme/colors';
 import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
 import PasswordInput from '../components/PasswordInput';
+import FormField, { FormNotice, FieldLabel } from '../components/FormField';
 import React, { useContext, useState, useCallback } from 'react';
 import { 
   View, 
@@ -167,7 +168,7 @@ export default function AccountScreen({ navigation }) {
     setProductModal(true);
   };
 
-  // Finalizar Compra de Produto Físico (PIX, Coins ou Mercado Pago)
+  // Finalizar compra com PetCoins ou Mercado Pago.
   const processPhysicalPurchase = async (paymentMethod) => {
     if (paymentMethod === 'MERCADO_PAGO') {
       if (!selectedItem || !selectedItem.price) {
@@ -197,15 +198,6 @@ export default function AccountScreen({ navigation }) {
       } finally {
         setIsProcessingPayment(false);
       }
-      return;
-    }
-
-    if (paymentMethod === 'PIX') {
-      setProductModal(false);
-      Alert.alert(
-        "PIX Copia e Cola 📋", 
-        `Chave: petgo-pix-loja-oficial-2026\nItem: ${selectedItem.name}\n\nEntrega/Retirada registrada:\n${deliveryType === 'ONG' ? selectedOng : deliveryAddress}`
-      );
       return;
     }
 
@@ -440,11 +432,18 @@ export default function AccountScreen({ navigation }) {
             <View style={[styles.modalContent, { alignItems: 'stretch', maxHeight: '95%' }]}>
               <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }}>
               <Text style={styles.modalTitle}>Editar Perfil</Text>
+              <FormNotice allRequired />
+              <FormField label="Nome completo" required>
               <TextInput style={styles.input} placeholder="Nome" value={newName} onChangeText={setNewName} underlineColorAndroid="transparent" placeholderTextColor="#999" />
-              <TextInput style={styles.input} placeholder="E-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              </FormField>
+              <FormField label="E-mail" required help="Se alterar o endereço, confirme sua senha atual e siga os links enviados por e-mail.">
+              <TextInput style={styles.input} placeholder="E-mail" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" keyboardType="email-address" underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              </FormField>
               {newEmail.trim().toLowerCase() !== (profile?.email || '').trim().toLowerCase() && <>
                 <Text style={{ color: colors.text, marginBottom: 12 }}>Confirme sua senha atual. O novo e-mail só será usado após a confirmação.</Text>
+                <FormField label="Senha atual" required help="Obrigatória somente ao alterar o e-mail.">
                 <PasswordInput resetKey={editModal} style={styles.input} placeholder="Senha atual para alterar e-mail" value={emailPassword} onChangeText={setEmailPassword} editable={!savingProfile} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+                </FormField>
               </>}
               <TouchableOpacity disabled={savingProfile} style={[styles.btnSave, savingProfile && { opacity: 0.5 }]} onPress={handleUpdate}>
                 <Text style={styles.btnSaveText}>{savingProfile ? 'Salvando…' : 'Salvar'}</Text>
@@ -459,20 +458,29 @@ export default function AccountScreen({ navigation }) {
 
         {/* MODAL 2: MUDAR SENHA */}
         <Modal visible={pwdModal} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={[styles.modalContent, { maxHeight: '90%', alignItems: 'stretch' }]}>
+              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 16 }}>
               <Text style={styles.modalTitle}>Mudar Senha</Text>
+              <FormNotice allRequired />
+              <FormField label="Senha atual" required>
               <PasswordInput resetKey={pwdModal} style={styles.input} placeholder="Senha Atual" value={currPass} onChangeText={setCurrPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              </FormField>
+              <FormField label="Nova senha" required help="A nova senha deve ter pelo menos 6 caracteres.">
               <PasswordInput resetKey={pwdModal} style={styles.input} placeholder="Nova Senha" value={newPass} onChangeText={setNewPass} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              </FormField>
+              <FormField label="Confirmar nova senha" required help="Repita a nova senha, exatamente como no campo anterior.">
               <PasswordInput resetKey={pwdModal} style={styles.input} placeholder="Confirmar Nova Senha" value={confirmPwd} onChangeText={setConfirmPwd} underlineColorAndroid="transparent" placeholderTextColor="#999" />
+              </FormField>
               <TouchableOpacity style={styles.btnSave} onPress={handlePasswordChange}>
                 <Text style={styles.btnSaveText}>Atualizar Senha</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setPwdModal(false)} style={{marginTop: 15}}>
                 <Text style={{textAlign: 'center', color: colors.danger}}>Cancelar</Text>
               </TouchableOpacity>
+              </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* MODAL 3: HISTÓRICO DE RESGATES */}
@@ -545,14 +553,18 @@ export default function AccountScreen({ navigation }) {
 
         {/* MODAL 5: OPÇÕES DE ENTREGA / RETIRADA (PRODUTOS FÍSICOS) */}
         <Modal visible={productModal} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={[styles.modalContent, { maxHeight: '90%', alignItems: 'stretch' }]}>
+              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 16 }}>
               <Text style={styles.modalTitle}>Resgate de Produto 📦</Text>
               <Text style={styles.voucherOffer}>{selectedItem?.name}</Text>
-
+              <Text style={{ color: colors.text, marginVertical: 12 }}>Compra de demonstração acadêmica. O Mercado Pago está em ambiente de testes, sem cobrança real.</Text>
+              <FormNotice allRequired />
+              <FieldLabel label="Forma de recebimento" required />
               <View style={styles.tabRow}>
                 <TouchableOpacity
                   style={[styles.tabButton, deliveryType === 'ONG' && styles.tabButtonActive]}
+                  accessibilityRole="radio" accessibilityState={{ checked: deliveryType === 'ONG' }}
                   onPress={() => setDeliveryType('ONG')}
                 >
                   <Text style={[styles.tabText, deliveryType === 'ONG' && styles.tabTextActive]}>Retirar em ONG</Text>
@@ -560,6 +572,7 @@ export default function AccountScreen({ navigation }) {
 
                 <TouchableOpacity
                   style={[styles.tabButton, deliveryType === 'DELIVERY' && styles.tabButtonActive]}
+                  accessibilityRole="radio" accessibilityState={{ checked: deliveryType === 'DELIVERY' }}
                   onPress={() => setDeliveryType('DELIVERY')}
                 >
                   <Text style={[styles.tabText, deliveryType === 'DELIVERY' && styles.tabTextActive]}>Receber em Casa</Text>
@@ -568,10 +581,11 @@ export default function AccountScreen({ navigation }) {
 
               {deliveryType === 'ONG' ? (
                 <View style={{ width: '100%', marginBottom: 15 }}>
-                  <Text style={styles.fieldLabel}>Escolha o ponto de coleta:</Text>
+                  <FieldLabel label="Ponto de retirada" required help="Selecione onde deseja retirar o produto nesta demonstração." />
                   {ONGS_LIST.map((ong) => (
                     <TouchableOpacity
                       key={ong}
+                      accessibilityRole="radio" accessibilityState={{ checked: selectedOng === ong }}
                       style={[styles.ongOption, selectedOng === ong && styles.ongOptionActive]}
                       onPress={() => setSelectedOng(ong)}
                     >
@@ -586,8 +600,11 @@ export default function AccountScreen({ navigation }) {
                 </View>
               ) : (
                 <View style={{ width: '100%', marginBottom: 15 }}>
-                  <Text style={styles.fieldLabel}>Endereço de Entrega:</Text>
+                  <FieldLabel label="Endereço de entrega" required help="Informe rua, número, bairro e cidade. Use dados fictícios na demonstração." />
                   <TextInput
+                    accessibilityLabel="Endereço de entrega, obrigatório"
+                    placeholder="Rua, número, bairro e cidade"
+                    placeholderTextColor={colors.primary}
                     style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
                     value={deliveryAddress}
                     onChangeText={setDeliveryAddress}
@@ -613,18 +630,12 @@ export default function AccountScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.btnSave, { backgroundColor: colors.success }]}
-                onPress={() => processPhysicalPurchase('PIX')}
-              >
-                <Text style={styles.btnSaveText}>Pagar em PIX ({selectedItem?.price})</Text>
-              </TouchableOpacity>
-
               <TouchableOpacity onPress={() => setProductModal(false)} style={{ marginTop: 12 }}>
                 <Text style={{ textAlign: 'center', color: colors.danger }}>Cancelar</Text>
               </TouchableOpacity>
+              </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
       </SafeAreaView>

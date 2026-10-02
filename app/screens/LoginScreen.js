@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import FormField, { FormNotice } from '../components/FormField';
 import { colors } from '../theme/colors';
 
 export default function LoginScreen({ navigation }) {
@@ -77,24 +78,29 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.subtitle}>Ajude a salvar vidas no mapa</Text>
 
           <View style={styles.inputContainer}>
-            <TextInput 
-              placeholder="E-mail" 
-              placeholderTextColor={colors.primary}
-              style={styles.input} 
-              onChangeText={setEmail}
-              value={email}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              editable={!isLoading}
-            />
-            <PasswordInput
-              placeholder="Senha" 
-              placeholderTextColor={colors.primary}
-              style={styles.input} 
-              onChangeText={setPassword}
-              value={password}
-              editable={!isLoading}
-            />
+            <FormNotice allRequired />
+            <FormField label="E-mail" required help="Informe o e-mail usado ao criar sua conta.">
+              <TextInput
+                placeholder="E-mail"
+                placeholderTextColor={colors.primary}
+                style={styles.input}
+                onChangeText={setEmail}
+                value={email}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                editable={!isLoading}
+              />
+            </FormField>
+            <FormField label="Senha" required help="Use o botão de olho para conferir a senha digitada.">
+              <PasswordInput
+                placeholder="Senha"
+                placeholderTextColor={colors.primary}
+                style={styles.input}
+                onChangeText={setPassword}
+                value={password}
+                editable={!isLoading}
+              />
+            </FormField>
           </View>
 
           <TouchableOpacity 
@@ -151,16 +157,19 @@ export default function LoginScreen({ navigation }) {
                   Digite seu e-mail para receber um link de recuperação de senha.
                 </Text>
 
-                <TextInput
-                  placeholder="Seu e-mail"
-                  placeholderTextColor={colors.primary}
-                  style={styles.input}
-                  onChangeText={setResetEmail}
-                  value={resetEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  editable={!isResettingPassword}
-                />
+                <FormNotice allRequired />
+                <FormField label="E-mail da conta" required help="Enviaremos o link de recuperação para este endereço. Confira também a caixa de spam.">
+                  <TextInput
+                    placeholder="Seu e-mail"
+                    placeholderTextColor={colors.primary}
+                    style={styles.input}
+                    onChangeText={setResetEmail}
+                    value={resetEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    editable={!isResettingPassword}
+                  />
+                </FormField>
 
                 <TouchableOpacity
                   style={[styles.buttonPrimary, isResettingPassword && styles.buttonDisabled]}

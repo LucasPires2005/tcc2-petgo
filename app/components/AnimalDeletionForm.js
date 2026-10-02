@@ -1,6 +1,7 @@
 import React, { useContext, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors } from '../theme/colors';
+import FormField, { FormNotice, FieldLabel } from './FormField';
 import { AuthContext } from '../context/AuthContext';
 import { deleteOwnAnimal, isAnimalAuthor } from '../services/animalDeletion';
 
@@ -32,15 +33,18 @@ export default function AnimalDeletionForm({ animal, onCancel, onDeleted }) {
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
     <Text accessibilityRole="header" style={styles.title}>Excluir registro</Text>
     <Text style={styles.description}>Deseja remover {animal?.name || 'este animal'}? O registro e suas fotos serão excluídos, exceto fotos compartilhadas. Não há desfazer. Essa ação não altera PetCoins.</Text>
-    <Text style={styles.label}>Qual é o motivo?</Text>
+    <FormNotice allRequired />
+    <FieldLabel label="Motivo da exclusão" required help="Selecione uma opção. Em Outro, descreva o motivo com 3 a 500 caracteres." />
     {['Criado por engano', 'Animal já encontrado', 'Outro'].map(value => <TouchableOpacity key={value}
       accessibilityRole="radio" accessibilityState={{ checked: choice === value, disabled: busy }} disabled={busy}
       style={[styles.option, choice === value && styles.selected]} onPress={() => { setChoice(value); setError(''); }}>
       <Text style={styles.optionText}>{choice === value ? '●' : '○'}  {value}</Text>
     </TouchableOpacity>)}
-    {choice === 'Outro' && <TextInput accessibilityLabel="Motivo da exclusão" editable={!busy} value={custom}
+    {choice === 'Outro' && <FormField label="Descreva o motivo" required>
+      <TextInput accessibilityLabel="Motivo da exclusão" editable={!busy} value={custom}
       onChangeText={setCustom} multiline maxLength={500} placeholder="Conte o motivo (3 a 500 caracteres)"
-      placeholderTextColor="#666666" style={styles.input} textAlignVertical="top" />}
+      placeholderTextColor="#666666" style={styles.input} textAlignVertical="top" />
+    </FormField>}
     {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
     <View style={styles.actions}>
       <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={onCancel} style={styles.cancel}><Text style={styles.optionText}>Cancelar</Text></TouchableOpacity>
