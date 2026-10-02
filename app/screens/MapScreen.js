@@ -31,6 +31,7 @@ import { selectAnimalPhoto } from '../services/photoSelection';
 import AnimalDeletionForm from '../components/AnimalDeletionForm';
 import FormField, { FormNotice, FieldLabel } from '../components/FormField';
 import { isAnimalAuthor } from '../services/animalDeletion';
+import { normalizeCoordinates } from '../services/proximity';
 
 // Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
 const getRelativeTime = (dateString) => {
@@ -48,7 +49,7 @@ const getRelativeTime = (dateString) => {
   return `Visto há ${diffInDays} dias`;
 };
 
-export default function MapScreen() {
+export default function MapScreen({ navigation }) {
   const { startCheckout } = useCheckout();
   const { user, refreshUserData, animals, fetchAnimals } = useContext(AuthContext); 
   const insets = useSafeAreaInsets();
@@ -448,6 +449,16 @@ export default function MapScreen() {
 
                   <Text style={styles.drawerSectionTitle}>Apoie a causa PetGo</Text>
                   <Text style={styles.drawerDescription}>Sua contribuição apoia a manutenção da plataforma PetGo, que conecta pessoas e mapeia animais em situação de vulnerabilidade. Os valores não são destinados diretamente a este animal.</Text>
+                  {normalizeCoordinates(selectedAnimal) && <TouchableOpacity accessibilityRole="link"
+                    style={{ minHeight: 44, justifyContent: 'center', marginBottom: 12 }}
+                    onPress={() => {
+                      setDetailVisible(false);
+                      navigation.navigate('Próximos', { supportRegion: {
+                        ...normalizeCoordinates(selectedAnimal), name: selectedAnimal.name
+                      } });
+                    }}>
+                    <Text style={{ color: colors.action, fontWeight: '600' }}>Ver rede de apoio nesta região</Text>
+                  </TouchableOpacity>}
                   <View style={styles.drawerActions}>
                     <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color={colors.background} /></TouchableOpacity>
                     <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>

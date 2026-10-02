@@ -15,6 +15,7 @@ const authRoutes = require('./routes/auth');
 app.use('/animals', animalRoutes);
 app.use('/auth', authRoutes);
 app.use('/admin', require('./routes/admin'));
+app.use('/support-network', require('./routes/supportNetwork').createSupportNetworkRouter({ db: require('./db') }));
 
 app.get('/', (req, res) => res.send('API PetGo 2.0 Rodando 🚀'));
 

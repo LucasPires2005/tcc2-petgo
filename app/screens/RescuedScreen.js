@@ -11,7 +11,7 @@ export default function RescuedScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Finais Felizes! ❤️</Text>
+        <Text style={styles.title}>Finais Felizes! </Text>
         <Text style={styles.subtitle}>Animais que já foram salvos.</Text>
       </View>
       <FlatList
