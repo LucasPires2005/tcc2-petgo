@@ -4,7 +4,7 @@ const { routeFixture, animalForm } = require('./helpers/routeFixture');
 
 function rescue(f, id = '42') {
   return f.request(`/${id}/rescue`, { method: 'PATCH', token: f.token,
-    body: { rescuer_name: 'Teste', rescuer_contact: 'teste', userId: 99 } });
+    form: animalForm('rescue_image') });
 }
 
 test('GAP-RESCUE: repetir o resgate não concede uma segunda recompensa', async t => {

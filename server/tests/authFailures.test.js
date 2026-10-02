@@ -15,7 +15,8 @@ for (const message of ['Invalid login credentials', 'Email not confirmed']) {
 
 test('SMTP indisponível no cadastro não cria perfil e devolve erro identificável', async (t) => {
   const f = await routeFixture(t, 'auth', { signupError: { message: 'Error sending confirmation email' } });
-  const r = await f.request('/register', { body: { name: 'Teste', email: 'test@example.test', password: 'secret123' } });
+  const r = await f.request('/register', { body: { name: 'Teste', email: 'test@example.test', password: 'secret123',
+    cpf: '52998224725', birthDate: '2000-01-01', acceptedDeclaration: true } });
   assert.equal(r.status, 502);
   assert.equal(r.body.code, 'CONFIRMATION_EMAIL_FAILED');
   assert.equal(f.calls.filter(c => c.kind === 'run').length, 0);
@@ -23,14 +24,16 @@ test('SMTP indisponível no cadastro não cria perfil e devolve erro identificá
 
 test('falha ao salvar cadastro desfaz apenas a identidade recém-criada', async (t) => {
   const f = await routeFixture(t, 'auth', { writeError: new Error('database unavailable') });
-  const r = await f.request('/register', { body: { name: 'Teste', email: 'test@example.test', password: 'secret123' } });
+  const r = await f.request('/register', { body: { name: 'Teste', email: 'test@example.test', password: 'secret123',
+    cpf: '52998224725', birthDate: '2000-01-01', acceptedDeclaration: true } });
   assert.equal(r.status, 500);
   assert.deepEqual(f.calls.filter(c => c.kind === 'deleteAuth'), [{ kind: 'deleteAuth', id: 'auth-test-7' }]);
 });
 
 test('cadastro duplicado não chama signUp', async (t) => {
   const f = await routeFixture(t, 'auth', { duplicate: true });
-  const r = await f.request('/register', { body: { name: 'Teste', email: 'test@example.test', password: 'secret123' } });
+  const r = await f.request('/register', { body: { name: 'Teste', email: 'test@example.test', password: 'secret123',
+    cpf: '52998224725', birthDate: '2000-01-01', acceptedDeclaration: true } });
   assert.equal(r.status, 400);
   assert.equal(f.calls.some(c => c.kind === 'signup'), false);
 });

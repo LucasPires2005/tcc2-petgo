@@ -8,6 +8,7 @@ const { issueMobileToken, getMobileAccess } = require('../services/mobileSession
 const { createRequireMobileUser, bindMobileIdentity } = require('../middleware/requireMobileUser');
 const { normalizeCheckout, referenceIdentity, publicBaseUrl } = require('../services/checkout');
 const { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, operationKey, activateSubscription, activatePayment, cancelSubscription } = require('../services/subscriptions');
+const { prepareEligibility, readEligibility, persistEligibility, eligibilityFailure } = require('../services/eligibility');
 
 const publicPaths = new Set(['/login', '/register', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
 const requireMobileUser = createRequireMobileUser({ db });
@@ -280,6 +281,27 @@ router.get('/update-status/:id', (req, res) => {
   );
 });
 
+// Somente o estado público da declaração; contas legadas continuam podendo entrar e navegar.
+router.get('/eligibility', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    res.json({ eligibility: await readEligibility(db, req.mobileUser.id) });
+  } catch (error) { eligibilityFailure(res, error); }
+});
+
+router.post('/eligibility', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const assessment = prepareEligibility(req.body);
+    const eligibility = await db.transaction(async tx => {
+      const user = (await tx.query('SELECT id FROM public.users WHERE id = $1 FOR UPDATE', [req.mobileUser.id])).rows[0];
+      if (!user) throw new Error('ELIGIBILITY_USER_NOT_FOUND');
+      return persistEligibility(tx, req.mobileUser.id, assessment);
+    });
+    res.json({ eligibility });
+  } catch (error) { eligibilityFailure(res, error); }
+});
+
 router.put('/update', async (req, res) => {
   const { id, name } = req.body;
   const email = normalizeEmail(req.body.email);
@@ -475,6 +497,13 @@ router.post('/register', async (req, res) => {
   }
 
   try {
+    let assessment;
+    try {
+      assessment = prepareEligibility(req.body);
+      // Detecta migração/permissão de leitura ausente antes de criar uma identidade externa.
+      await getOne('SELECT user_id FROM petgo_private.user_eligibility WHERE false');
+    } catch (error) { return eligibilityFailure(res, error); }
+
     const existingUser = await getOne(
       'SELECT id FROM users WHERE LOWER(TRIM(email)) = ?',
       [email]
@@ -519,23 +548,36 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-      await runQuery(
-        `INSERT INTO users (
+      await db.transaction(async tx => {
+        const localUser = (await tx.query(`INSERT INTO public.users (
           name,
           email,
           password,
           email_confirmed,
           auth_user_id
-        ) VALUES (?, ?, ?, ?, ?)`,
+        ) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
         [name, email, password, false, data.user.id]
-      );
+        )).rows[0];
+        if (!localUser) throw new Error('REGISTER_LOCAL_USER_MISSING');
+        await persistEligibility(tx, localUser.id, assessment);
+      });
     } catch (databaseError) {
-      await supabase.auth.admin.deleteUser(data.user.id);
-
-      console.error('Erro ao salvar usuário local:', databaseError);
+      let rollbackFailed = true;
+      try {
+        // Não remover uma identidade que outra tentativa já vinculou a um perfil válido.
+        // Se não for possível conferir o vínculo, conservar Auth é a opção segura.
+        const linkedUser = await getOne('SELECT id FROM users WHERE auth_user_id = ?', [data.user.id]);
+        if (!linkedUser) {
+          const { error: cleanupError } = await supabase.auth.admin.deleteUser(data.user.id);
+          rollbackFailed = Boolean(cleanupError);
+        }
+      } catch { rollbackFailed = true; }
+      // Erros SQL podem incluir parâmetros: nunca registrar CPF, HMAC, nascimento ou senha.
+      console.error('Erro ao salvar usuário local:', { code: databaseError.code || 'REGISTER_LOCAL_FAILED', rollbackFailed });
 
       return res.status(500).json({
-        error: 'Não foi possível finalizar o cadastro.'
+        error: 'Não foi possível finalizar o cadastro.',
+        ...(rollbackFailed ? { code: 'REGISTRATION_ROLLBACK_FAILED' } : {})
       });
     }
 
@@ -544,7 +586,7 @@ router.post('/register', async (req, res) => {
       requiresEmailConfirmation: true
     });
   } catch (error) {
-    console.error('Erro no cadastro:', error);
+    console.error('Erro no cadastro:', { code: error.code || 'REGISTER_FAILED' });
     res.status(500).json({ error: 'Erro ao criar a conta.' });
   }
 });

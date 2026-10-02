@@ -1,5 +1,5 @@
 import { colors } from '../theme/colors';
-import { mobileFetch, API_BASE_URL } from '../services/mobileApi';
+import { mobileFetch, API_BASE_URL, captureSessionGuard } from '../services/mobileApi';
 import { useCheckout } from '../context/CheckoutContext';
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { 
@@ -32,6 +32,8 @@ import AnimalDeletionForm from '../components/AnimalDeletionForm';
 import FormField, { FormNotice, FieldLabel } from '../components/FormField';
 import { isAnimalAuthor } from '../services/animalDeletion';
 import { normalizeCoordinates } from '../services/proximity';
+import EligibilityForm from '../components/EligibilityForm';
+import { getEligibility, formatCpf } from '../services/eligibilityApi';
 
 // Função auxiliar para transformar data em tempo relativo (Timestamp Humano)
 const getRelativeTime = (dateString) => {
@@ -84,10 +86,20 @@ export default function MapScreen({ navigation }) {
 
   const [rescuerName, setRescuerName] = useState('');
   const [rescuerContact, setRescuerContact] = useState('');
+  const [rescuerEmail, setRescuerEmail] = useState('');
+  const [rescuerCpf, setRescuerCpf] = useState('');
+  const [acceptedResponsibility, setAcceptedResponsibility] = useState(false);
+  const [eligibilityNeeded, setEligibilityNeeded] = useState(false);
+  const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
   const [rescueImage, setRescueImage] = useState(null); 
   const [photoSourceTarget, setPhotoSourceTarget] = useState(null);
   const photoBusy = useRef(false);
   const photoRequest = useRef(0);
+  const rescueRequest = useRef(0);
+  const rescueLookupBusy = useRef(false);
+  const rescueSubmitBusy = useRef(false);
+  const rescueAlive = useRef(true);
+  const rescueFormGuard = useRef(null);
 
   const API_URL = `${API_BASE_URL}/animals`;
 
@@ -97,6 +109,80 @@ export default function MapScreen({ navigation }) {
 
   }, []);
   useEffect(() => () => { photoRequest.current++; }, []);
+  useEffect(() => {
+    rescueAlive.current = true;
+    return () => { rescueAlive.current = false; rescueRequest.current++; };
+  }, []);
+  useEffect(() => {
+    rescueRequest.current++;
+    rescueLookupBusy.current = false;
+    rescueSubmitBusy.current = false;
+    rescueFormGuard.current = null;
+    photoRequest.current++;
+    setPhotoSourceTarget(null);
+    setIsCheckingEligibility(false);
+    setIsUploadingRescue(false);
+    setRescueModalVisible(false);
+    setEligibilityNeeded(false);
+    clearRescueDraft();
+  }, [user?.id]);
+  useEffect(() => navigation.addListener?.('blur', () => {
+    // Não reabre um resgate atrasado nem deixa documento no mapa fora de foco.
+    rescueRequest.current++;
+    rescueLookupBusy.current = false;
+    rescueSubmitBusy.current = false;
+    rescueFormGuard.current = null;
+    photoRequest.current++;
+    setPhotoSourceTarget(null);
+    setIsCheckingEligibility(false); setIsUploadingRescue(false);
+    setRescueModalVisible(false); setEligibilityNeeded(false);
+    clearRescueDraft();
+  }), [navigation]);
+
+  function clearRescueDraft() {
+    setRescuerName(''); setRescuerContact(''); setRescuerEmail(''); setRescuerCpf('');
+    setAcceptedResponsibility(false); setRescueImage(null);
+  }
+
+  function closeAnimalDetails() {
+    if (deleteMode) return;
+    rescueRequest.current++;
+    rescueLookupBusy.current = false;
+    setIsCheckingEligibility(false);
+    setDetailVisible(false);
+  }
+
+  async function requestRescue() {
+    if (rescueLookupBusy.current || rescueSubmitBusy.current || !selectedAnimal?.id || !user?.id) return;
+    const animal = selectedAnimal;
+    const request = ++rescueRequest.current;
+    const ensureSession = captureSessionGuard();
+    rescueLookupBusy.current = true; setIsCheckingEligibility(true);
+    try {
+      const eligibility = await getEligibility();
+      ensureSession();
+      if (!rescueAlive.current || request !== rescueRequest.current) return;
+      clearRescueDraft();
+      setRescuerName(user.name || ''); setRescuerEmail(user.email || '');
+      setEligibilityNeeded(!eligibility.declaredAdult);
+      setDetailVisible(false);
+      // Fecha o detalhe antes de abrir outro Modal nativo, também no iOS.
+      setTimeout(() => {
+        try { ensureSession(); } catch { return; }
+        if (!rescueAlive.current || request !== rescueRequest.current) return;
+        rescueFormGuard.current = ensureSession;
+        setSelectedAnimal(animal); setRescueModalVisible(true);
+      }, 400);
+    } catch (error) {
+      if (rescueAlive.current && request === rescueRequest.current) {
+        Alert.alert('Não foi possível continuar', error.message || 'Confira sua conexão e tente novamente.');
+      }
+    } finally {
+      if (rescueAlive.current && request === rescueRequest.current) {
+        rescueLookupBusy.current = false; setIsCheckingEligibility(false);
+      }
+    }
+  }
 
   function closeAnimalForm() {
     if (isUploadingAnimal) return;
@@ -108,9 +194,21 @@ export default function MapScreen({ navigation }) {
 
   function closeRescueForm() {
     if (isUploadingRescue) return;
+    rescueRequest.current++;
+    rescueFormGuard.current = null;
     photoRequest.current++;
     setPhotoSourceTarget(null);
     setRescueModalVisible(false);
+    setEligibilityNeeded(false);
+    clearRescueDraft();
+  }
+
+  function completeEligibility(cpf) {
+    if (!rescueFormGuard.current || !rescueAlive.current) return;
+    try { rescueFormGuard.current(); } catch { closeRescueForm(); return; }
+    setRescuerCpf(formatCpf(cpf));
+    setAcceptedResponsibility(false);
+    setEligibilityNeeded(false);
   }
 
   function openPhotoOptions(target) {
@@ -265,36 +363,43 @@ export default function MapScreen({ navigation }) {
   }
 
   async function handleRescue() {
-    if (!rescuerName || !rescuerContact || !rescueImage) return Alert.alert('Atenção', 'Preencha os dados e a FOTO DE PROVA!');
-    
-    setIsUploadingRescue(true);
-     
-    const formData = new FormData();
-    formData.append('rescuer_name', rescuerName);
-    formData.append('rescuer_contact', rescuerContact);
-    formData.append('userId', user?.id?.toString());
-
-    // NOVO: Anexando a foto do resgate com fix do MIME type
+    if (rescueSubmitBusy.current || eligibilityNeeded) return;
+    if (!rescuerName.trim() || !rescuerContact.trim() || !rescuerEmail.trim() || !rescuerCpf || !rescueImage) {
+      return Alert.alert('Atenção', 'Preencha nome, WhatsApp, e-mail, CPF e a foto de prova.');
+    }
+    if (!/^(?:\d{10,11}|55\d{10,11})$/.test(rescuerContact.replace(/\D/g, ''))) {
+      return Alert.alert('Confira o WhatsApp', 'Informe um telefone com DDD.');
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rescuerEmail.trim())) {
+      return Alert.alert('Confira o e-mail', 'Informe um endereço de e-mail válido.');
+    }
+    if (!/^\d{11}$/.test(rescuerCpf.replace(/[.\-]/g, ''))) return Alert.alert('Confira o CPF', 'Informe os 11 dígitos do CPF declarado.');
+    if (!acceptedResponsibility) return Alert.alert('Declaração obrigatória', 'Confirme sua responsabilidade pelo resgate antes de continuar.');
+    const ensureSession = rescueFormGuard.current;
+    if (!ensureSession) return Alert.alert('Abra o resgate novamente', 'Confira sua sessão antes de continuar.');
+    const request = ++rescueRequest.current;
+    const animalId = selectedAnimal?.id;
+    rescueSubmitBusy.current = true; setIsUploadingRescue(true);
     try {
+      ensureSession();
+      const formData = new FormData();
+      formData.append('rescuer_name', rescuerName.trim());
+      formData.append('rescuer_contact', rescuerContact.trim());
+      formData.append('rescuer_email', rescuerEmail.trim().toLowerCase());
+      formData.append('rescuer_cpf', rescuerCpf);
+      formData.append('acceptedResponsibility', 'true');
+      formData.append('userId', user?.id?.toString());
+
+      // Preserva a conversão de foto já validada no Android/iOS.
       const response = await fetch(rescueImage.uri);
       let blob = await response.blob();
-      
-      //  NOVO: Se o blob estiver como text/plain, converter para image/jpeg
       if (blob.type === 'text/plain' || blob.type === '') {
-        console.log('⚠️ Blob type incorreto. Corrigindo de:', blob.type, 'para: image/jpeg');
         blob = blob.slice(0, blob.size, 'image/jpeg');
       }
-      
-      console.log('✅ Blob final:', { size: blob.size, type: blob.type });
       formData.append('rescue_image', blob, rescueImage.fileName || `resgate-${Date.now()}.jpg`);
-    } catch (error) {
-      console.error('Erro ao converter imagem de resgate:', error);
-      setIsUploadingRescue(false);
-      return Alert.alert('Erro', 'Falha ao processar a foto. Tente novamente.');
-    }
-
-    try {
-      const res = await mobileFetch(`${API_URL}/${selectedAnimal.id}/rescue`, {
+      ensureSession();
+      if (!rescueAlive.current || request !== rescueRequest.current) return;
+      const res = await mobileFetch(`${API_URL}/${animalId}/rescue`, {
         method: 'PATCH',
         body: formData,
         headers: { 'ngrok-skip-browser-warning': 'true' },
@@ -302,12 +407,15 @@ export default function MapScreen({ navigation }) {
 
       if (res.ok) {
         const data = await res.json();
-        setRescueModalVisible(false); 
-        setRescueImage(null); 
-        setRescuerName('');
+        ensureSession();
+        if (!rescueAlive.current || request !== rescueRequest.current) return;
+        setRescueModalVisible(false); rescueFormGuard.current = null;
+        clearRescueDraft();
         if (refreshUserData) {
-          await refreshUserData().catch((e) => console.log('Erro de sincronização de dados:', e));
+          await refreshUserData().catch(() => {});
         }
+        ensureSession();
+        if (!rescueAlive.current || request !== rescueRequest.current) return;
         fetchAnimals();
          
         const earnedText = data.earnedCoins 
@@ -317,17 +425,29 @@ export default function MapScreen({ navigation }) {
         Alert.alert('Parabéns! ❤️', `Resgate validado com foto!\n\n${earnedText}`);
       } else {
         const errorData = await res.json().catch(() => ({}));
-        console.error('Erro na resposta:', errorData);
+        ensureSession();
+        if (!rescueAlive.current || request !== rescueRequest.current) return;
+        if (errorData.code === 'ELIGIBILITY_REQUIRED') {
+          setRescuerCpf(''); setAcceptedResponsibility(false); setEligibilityNeeded(true);
+          return;
+        }
+        if (errorData.code === 'CPF_DECLARATION_MISMATCH') setRescuerCpf('');
         Alert.alert(
           res.status === 422 ? 'Imagem não permitida' : 'Erro',
           errorData.error || `Falha ao processar resgate: ${res.status}`
         );
       }
-    } catch (e) { 
-      console.error('Erro ao fazer resgate:', e);
-      Alert.alert('Erro', 'Falha ao processar resgate'); 
+    } catch (e) {
+      if (rescueAlive.current && request === rescueRequest.current) {
+        try { ensureSession(); } catch {
+          clearRescueDraft(); setRescueModalVisible(false); rescueFormGuard.current = null;
+        }
+        Alert.alert('Erro', 'Não foi possível concluir. Confira sua sessão, a foto e a conexão e tente novamente.');
+      }
     } finally {
-      setIsUploadingRescue(false);
+      if (rescueAlive.current && request === rescueRequest.current) {
+        rescueSubmitBusy.current = false; setIsUploadingRescue(false);
+      }
     }
   }
 
@@ -373,6 +493,8 @@ export default function MapScreen({ navigation }) {
         isPremium={Boolean(user?.is_premium)}
         onSelectLocation={setSelectedLocation}
         onSelectAnimal={(animal) => {
+          rescueRequest.current++;
+          rescueLookupBusy.current = false; setIsCheckingEligibility(false);
           setDeleteMode(false);
           setSelectedAnimal(animal);
           setDetailVisible(true);
@@ -401,8 +523,8 @@ export default function MapScreen({ navigation }) {
       </TouchableOpacity>}
 
       {/* Drawer de Detalhes do Animal */}
-      <Modal visible={detailVisible} animationType="slide" transparent={true} onRequestClose={() => { if (!deleteMode) setDetailVisible(false); }}>
-        <TouchableWithoutFeedback onPress={() => { if (!deleteMode) setDetailVisible(false); }}>
+      <Modal visible={detailVisible} animationType="slide" transparent={true} onRequestClose={closeAnimalDetails}>
+        <TouchableWithoutFeedback onPress={closeAnimalDetails}>
           <KeyboardAvoidingView style={styles.drawerOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <TouchableWithoutFeedback>
               <View style={styles.drawerContent}>
@@ -417,7 +539,7 @@ export default function MapScreen({ navigation }) {
                 >
                   <View style={styles.drawerHeader}>
                     <Text style={styles.drawerTitle}>{selectedAnimal?.name}</Text>
-                    <TouchableOpacity onPress={() => setDetailVisible(false)}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
+                    <TouchableOpacity onPress={closeAnimalDetails}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
                   </View>
                   
                   {/* CORREÇÃO APLICADA AQUI: Tratamento de URL Supabase vs Local */}
@@ -452,7 +574,7 @@ export default function MapScreen({ navigation }) {
                   {normalizeCoordinates(selectedAnimal) && <TouchableOpacity accessibilityRole="link"
                     style={{ minHeight: 44, justifyContent: 'center', marginBottom: 12 }}
                     onPress={() => {
-                      setDetailVisible(false);
+                      closeAnimalDetails();
                       navigation.navigate('Próximos', { supportRegion: {
                         ...normalizeCoordinates(selectedAnimal), name: selectedAnimal.name
                       } });
@@ -460,11 +582,12 @@ export default function MapScreen({ navigation }) {
                     <Text style={{ color: colors.action, fontWeight: '600' }}>Ver rede de apoio nesta região</Text>
                   </TouchableOpacity>}
                   <View style={styles.drawerActions}>
-                    <TouchableOpacity style={styles.shareButton} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color={colors.background} /></TouchableOpacity>
-                    <TouchableOpacity style={styles.rescueButton} onPress={() => { setDetailVisible(false); setTimeout(() => setRescueModalVisible(true), 500); }}><Text style={styles.actionButtonText}>Resgatar</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.donateButtonNew} onPress={() => { setDetailVisible(false); setTimeout(() => setDonateModalVisible(true), 400); }}><Ionicons name="heart" size={18} color={colors.action} /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.shareButton} disabled={isCheckingEligibility} onPress={() => onShare(selectedAnimal)}><Ionicons name="logo-whatsapp" size={20} color={colors.background} /></TouchableOpacity>
+                    <TouchableOpacity style={[styles.rescueButton, isCheckingEligibility && { opacity: 0.6 }]} disabled={isCheckingEligibility}
+                      onPress={requestRescue}>{isCheckingEligibility ? <ActivityIndicator color={colors.background} /> : <Text style={styles.actionButtonText}>Resgatar</Text>}</TouchableOpacity>
+                    <TouchableOpacity style={styles.donateButtonNew} onPress={() => { closeAnimalDetails(); setTimeout(() => setDonateModalVisible(true), 400); }}><Ionicons name="heart" size={18} color={colors.action} /><Text style={styles.donateButtonText}>Apoiar</Text></TouchableOpacity>
                   </View>
-                  {isAnimalAuthor(selectedAnimal, user?.id) && <TouchableOpacity accessibilityRole="button"
+                  {isAnimalAuthor(selectedAnimal, user?.id) && <TouchableOpacity accessibilityRole="button" disabled={isCheckingEligibility}
                     style={{ minHeight: 48, padding: 14, marginTop: 18, borderRadius: 12, borderWidth: 1, borderColor: colors.danger, alignItems: 'center' }}
                     onPress={() => setDeleteMode(true)}><Text style={{ color: colors.danger, fontWeight: '600' }}>Excluir meu registro</Text></TouchableOpacity>}
                 </ScrollView>}
@@ -631,23 +754,41 @@ export default function MapScreen({ navigation }) {
       <Modal visible={rescueModalVisible} animationType="fade" transparent={true} onRequestClose={closeRescueForm}>
         <KeyboardAvoidingView style={styles.modalOverlayCenter} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.rescueModal}>
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+            {eligibilityNeeded ? <EligibilityForm onCancel={closeRescueForm} onCompleted={completeEligibility} /> : <>
             <Text style={styles.modalTitle}>Validar Resgate ❤️</Text>
             <FormNotice allRequired />
             <FormField label="Seu nome completo" required>
-            <TextInput placeholder="Seu Nome" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerName} onChangeText={setRescuerName} style={[styles.input, styles.rescueInput]} />
+            <TextInput placeholder="Seu Nome" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor={colors.action} value={rescuerName} onChangeText={setRescuerName} editable={!isUploadingRescue} maxLength={120} style={[styles.input, styles.rescueInput]} />
             </FormField>
             <FormField label="WhatsApp com DDD" required help="Informe um número com DDD para contato sobre este resgate.">
-            <TextInput placeholder="WhatsApp" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor="#245B91" value={rescuerContact} onChangeText={setRescuerContact} style={[styles.input, styles.rescueInput]} keyboardType="phone-pad" />
+            <TextInput placeholder="WhatsApp" placeholderTextColor="#52606D" underlineColorAndroid="transparent" selectionColor={colors.action} value={rescuerContact} onChangeText={setRescuerContact} editable={!isUploadingRescue} maxLength={30} style={[styles.input, styles.rescueInput]} keyboardType="phone-pad" />
+            </FormField>
+            <FormField label="E-mail" required help="Informe um endereço para contato sobre este resgate.">
+              <TextInput placeholder="nome@exemplo.com" placeholderTextColor="#52606D" underlineColorAndroid="transparent"
+                selectionColor={colors.action} value={rescuerEmail} onChangeText={setRescuerEmail} editable={!isUploadingRescue}
+                autoCapitalize="none" autoCorrect={false} keyboardType="email-address" maxLength={254} style={[styles.input, styles.rescueInput]} />
+            </FormField>
+            <FormField label="CPF" required help="Use o mesmo CPF da sua declaração de maioridade. O documento não é exibido publicamente e a validação não comprova identidade.">
+              <TextInput placeholder="000.000.000-00" placeholderTextColor="#52606D" underlineColorAndroid="transparent"
+                selectionColor={colors.action} value={rescuerCpf} onChangeText={value => setRescuerCpf(formatCpf(value))} editable={!isUploadingRescue}
+                keyboardType="number-pad" maxLength={14} style={[styles.input, styles.rescueInput]} />
             </FormField>
              
             <FieldLabel label="Foto de comprovação do resgate" required help="Registre o animal após o resgate. Evite rostos humanos em destaque na foto." />
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={rescueImage ? 'Trocar foto do resgate' : 'Adicionar foto do resgate, obrigatório'} onPress={pickRescueImage} style={styles.imagePickerMini}>
+            <TouchableOpacity accessibilityRole="button" disabled={isUploadingRescue} accessibilityLabel={rescueImage ? 'Trocar foto do resgate' : 'Adicionar foto do resgate, obrigatório'} onPress={pickRescueImage} style={styles.imagePickerMini}>
               {rescueImage ? <Image source={{ uri: rescueImage.uri }} style={{width:'100%', height:'100%', borderRadius:10}} /> : <Ionicons name="camera" size={30} color="#CCC" />}
             </TouchableOpacity>
             {photoSourceTarget === 'rescue' && <PhotoSourceOptions
               onSelect={source => choosePhoto(source, 'rescue')}
               onCancel={() => setPhotoSourceTarget(null)} />}
+            <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="Confirmo minha responsabilidade pelo resgate e a veracidade dos dados e da foto, obrigatório"
+              accessibilityState={{ checked: acceptedResponsibility, disabled: isUploadingRescue }} disabled={isUploadingRescue}
+              onPress={() => setAcceptedResponsibility(value => !value)} style={styles.responsibilityCheckbox}>
+              <Ionicons name={acceptedResponsibility ? 'checkbox' : 'square-outline'} size={25} color={colors.action} />
+              <Text style={styles.responsibilityText}>Confirmo minha responsabilidade pelo resgate e a veracidade dos dados e da foto. *</Text>
+            </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.confirmRescueBtn, isUploadingRescue && {opacity: 0.6}]} 
               onPress={handleRescue}
@@ -660,6 +801,7 @@ export default function MapScreen({ navigation }) {
               )}
             </TouchableOpacity>
             <TouchableOpacity disabled={isUploadingRescue} onPress={closeRescueForm} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#52606D'}}>Voltar</Text></TouchableOpacity>
+            </>}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -669,6 +811,8 @@ export default function MapScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  responsibilityCheckbox: { flexDirection: 'row', gap: 10, alignItems: 'center', minHeight: 48, marginBottom: 18 },
+  responsibilityText: { flex: 1, color: colors.text, fontSize: 13, lineHeight: 19 },
   rescueInput: { backgroundColor: colors.surface, color: colors.text, borderColor: '#94A3B8', opacity: 1 },
   clearLocationButton: { position: 'absolute', bottom: 110, alignSelf: 'center', flexDirection: 'row', gap: 6,
     backgroundColor: colors.background, borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 20, paddingHorizontal: 16,

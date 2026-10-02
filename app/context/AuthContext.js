@@ -166,13 +166,14 @@ export function AuthProvider({ children }) {
     } catch (error) { Alert.alert('Erro', 'Conexão falhou.'); }
   }
 
-  async function register(name, email, password) {
+  async function register(name, email, password, declaration) {
     const cleanEmail = email.trim().toLowerCase();
     try {
       const response = await fetch(`${BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: cleanEmail, password }),
+        body: JSON.stringify({ name, email: cleanEmail, password,
+          cpf: declaration?.cpf, birthDate: declaration?.birthDate, acceptedDeclaration: declaration?.acceptedDeclaration }),
       });
       const data = await response.json();
       if (response.ok) { 

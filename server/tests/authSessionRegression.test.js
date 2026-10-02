@@ -7,13 +7,18 @@ const { createRequire } = require('node:module');
 const express = require('express');
 const { verifyMobileToken } = require('../services/mobileSession');
 process.env.MOBILE_JWT_SECRET = 'test-only-secret-with-more-than-32-bytes';
+process.env.CPF_HMAC_SECRET = Buffer.alloc(32, 37).toString('base64');
 
 async function fixture(t, { legacy = false, banned = false } = {}) {
   const calls = [];
   const user = { id: 7, name: 'Teste', email: 'test@example.test', password: 'secret123', auth_user_id: legacy ? null : 'uuid' };
   const db = {
+    transaction: require('./helpers/subscriptionTransaction').subscriptionTransaction({ user,
+      state: { coins: 0, eligibility: null }, options: {}, record: (kind, { sql }) => calls.push([kind, sql]) }),
     get(sql, params, cb) {
       if (sql.includes('user_access')) return cb(null, { id: 7, version: 0, banned });
+      if (sql.includes('petgo_private.user_eligibility')) return cb(null, null);
+      if (sql === 'SELECT id FROM users WHERE auth_user_id = ?') return cb(null, null);
       if (sql === 'SELECT id FROM users WHERE LOWER(TRIM(email)) = ?') return cb(null, null);
       cb(null, user);
     },
@@ -64,7 +69,8 @@ test('login Supabase e legado mantêm perfil e recebem JWT; conta banida não re
 
 test('cadastro, reenvio e recuperação permanecem públicos e mantêm redirects', async (t) => {
   const f = await fixture(t);
-  assert.equal((await f.request('/register', { name: 'Teste', email: 'test@example.test', password: 'secret123' })).status, 201);
+  assert.equal((await f.request('/register', { name: 'Teste', email: 'test@example.test', password: 'secret123',
+    cpf: '52998224725', birthDate: '2000-01-01', acceptedDeclaration: true })).status, 201);
   assert.equal((await f.request('/resend-confirmation', { email: 'test@example.test' })).status, 200);
   assert.equal((await f.request('/request-password-reset', { email: 'test@example.test' })).status, 200);
   assert.equal((await f.request('/reset-password', { token: 'supabase-recovery-token', newPassword: 'new-secret123' })).status, 200);

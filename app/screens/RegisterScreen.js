@@ -1,5 +1,5 @@
 import { colors } from '../theme/colors';
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
 import FormField, { FormNotice } from '../components/FormField';
 import { Ionicons } from '@expo/vector-icons';
+import EligibilityFields from '../components/EligibilityFields';
+import { birthDateToIso, declarationError } from '../services/eligibilityApi';
 
 export default function RegisterScreen({ navigation }) {
   const { register, resendConfirmationEmail } = useContext(AuthContext);
@@ -27,6 +29,18 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
+  const [cpf, setCpf] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [acceptedDeclaration, setAcceptedDeclaration] = useState(false);
+  const registerLock = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    const unsubscribe = navigation.addListener('blur', () => {
+      setCpf(''); setBirthDate(''); setAcceptedDeclaration(false);
+    });
+    return () => { active.current = false; unsubscribe(); };
+  }, [navigation]);
   
   // NOVOS: Estados para confirmação de e-mail
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +48,7 @@ export default function RegisterScreen({ navigation }) {
   const [registeredEmail, setRegisteredEmail] = useState('');
 
   const handleRegister = async () => {
+    if (registerLock.current) return;
     if (!name || !email || !password || !confirmPassword) {
       return Alert.alert('Atenção', 'Preencha todos os campos para criar sua conta.');
     }
@@ -58,18 +73,29 @@ export default function RegisterScreen({ navigation }) {
       return Alert.alert('Atenção', 'Você precisa ler e concordar com os Termos de Uso para criar uma conta.');
     }
 
-    setIsLoading(true);
-    const success = await register(name, email.trim(), password);
-    setIsLoading(false);
+    const eligibilityError = declarationError(cpf, birthDate, acceptedDeclaration);
+    if (eligibilityError) return Alert.alert('Confira sua declaração', eligibilityError);
 
-    if (success) {
-      // NOVO: Após sucesso no registro, mostra tela de confirmação de e-mail
-      setRegisteredEmail(email);
-      setEmailSent(true);
-      setName('');
-      setEmail('');
-      setPassword('');
-      setConfirmPassword('');
+    registerLock.current = true;
+    setIsLoading(true);
+    try {
+      const success = await register(name, email.trim(), password, {
+        cpf, birthDate: birthDateToIso(birthDate), acceptedDeclaration
+      });
+      if (!active.current) return;
+      if (success) {
+        // Após sucesso, mantém o fluxo existente de confirmação de e-mail.
+        setRegisteredEmail(email);
+        setEmailSent(true);
+        setName('');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+        setCpf(''); setBirthDate(''); setAcceptedDeclaration(false);
+      }
+    } finally {
+      registerLock.current = false;
+      if (active.current) setIsLoading(false);
     }
   };
 
@@ -187,6 +213,9 @@ export default function RegisterScreen({ navigation }) {
             editable={!isLoading}
           />
         </FormField>
+
+        <EligibilityFields cpf={cpf} setCpf={setCpf} birthDate={birthDate} setBirthDate={setBirthDate}
+          accepted={acceptedDeclaration} setAccepted={setAcceptedDeclaration} disabled={isLoading} />
 
         {/* RECUPERADO: Checkbox de Termos */}
         <View style={styles.checkboxContainer}>

@@ -7,6 +7,9 @@ const { moderateImage } = require('../services/imageModeration');
 const { reserveAnimalCreation, releaseAnimalCreation } = require('../services/animalCreationLimit');
 const { createAnimalAuthorDeletionRouter } = require('./animalAuthorDeletion');
 const { createRequireMobileUser, bindAnimalActor } = require('../middleware/requireMobileUser');
+const { normalizeEmail, isValidEmail } = require('../services/credentialValidation');
+const { isValidCpf, matchesCpfHmac, CPF_KEY_VERSION, ELIGIBILITY_STATUS } = require('../services/eligibilityValidation');
+const RESCUE_TERMS_VERSION = '2026-10-02-v1';
 router.use(createRequireMobileUser({ db }));
 
 // Configuração do Supabase Client
@@ -157,9 +160,35 @@ router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
 // Status do animal e recompensa são confirmados na mesma conexão/transação.
 router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, async (req, res) => {
   const { id } = req.params;
-  const { rescuer_name, rescuer_contact } = req.body;
+  const { rescuer_cpf, acceptedResponsibility } = req.body;
+  const rescuer_name = typeof req.body.rescuer_name === 'string' ? req.body.rescuer_name.trim() : '';
+  const phoneInput = typeof req.body.rescuer_contact === 'string' ? req.body.rescuer_contact.trim() : '';
+  let rescuer_contact = phoneInput.replace(/[+(). -]/g, '');
+  if (phoneInput.startsWith('+55') || ([12, 13].includes(rescuer_contact.length) && rescuer_contact.startsWith('55'))) {
+    rescuer_contact = rescuer_contact.slice(2);
+  }
+  const rescuer_email = normalizeEmail(req.body.rescuer_email);
   if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) {
     return res.status(400).json({ error: 'Identificador de animal inválido.' });
+  }
+  if (rescuer_name.length < 2 || rescuer_name.length > 120
+      || /[\u0000-\u001f\u007f]/.test(req.body.rescuer_name)) {
+    return res.status(400).json({ error: 'Informe seu nome, entre 2 e 120 caracteres.', code: 'RESCUER_NAME_INVALID' });
+  }
+  if (phoneInput.length > 32 || !/^(?:\+55)?[0-9(). -]+$/.test(phoneInput) || !/^[0-9]{10,11}$/.test(rescuer_contact)) {
+    return res.status(400).json({ error: 'Informe um telefone com DDD, com 10 ou 11 números.', code: 'RESCUER_CONTACT_INVALID' });
+  }
+  if (!isValidEmail(rescuer_email)) {
+    return res.status(400).json({ error: 'Formato de e-mail inválido.', code: 'RESCUER_EMAIL_INVALID' });
+  }
+  if (!isValidCpf(rescuer_cpf)) {
+    return res.status(400).json({ error: 'CPF inválido. Confira os números informados.', code: 'CPF_INVALID' });
+  }
+  if (acceptedResponsibility !== true && acceptedResponsibility !== 'true') {
+    return res.status(400).json({ error: 'Confirme a declaração de responsabilidade para continuar.', code: 'RESPONSIBILITY_REQUIRED' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'Adicione a foto de prova do resgate.', code: 'RESCUE_IMAGE_REQUIRED' });
   }
   if (!(await validateUploadedImage(req.file, res))) return;
   try {
@@ -177,6 +206,38 @@ router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, asyn
         OR subscription_end_date > clock_timestamp() THEN plan_tier ELSE 0 END AS plan_tier
         FROM public.users WHERE id = $1 FOR UPDATE`, [userId])).rows[0];
       if (!user) return { status: 404, body: { error: 'Usuário não encontrado.' } };
+      let eligibility;
+      try {
+        eligibility = (await tx.query(`SELECT cpf_hmac, cpf_key_version, status
+          FROM petgo_private.user_eligibility WHERE user_id = $1 FOR SHARE`, [userId])).rows[0];
+      } catch {
+        throw Object.assign(new Error('ELIGIBILITY_UNAVAILABLE'), { code: 'ELIGIBILITY_UNAVAILABLE' });
+      }
+      if (!eligibility || eligibility.status !== ELIGIBILITY_STATUS) {
+        return { status: 403, body: { error: 'Complete sua declaração de maioridade antes de resgatar.', code: 'ELIGIBILITY_REQUIRED' } };
+      }
+      let cpfMatches;
+      try {
+        if (eligibility.cpf_key_version !== CPF_KEY_VERSION || !/^[0-9a-f]{64}$/.test(eligibility.cpf_hmac)) {
+          throw new Error('ELIGIBILITY_UNAVAILABLE');
+        }
+        cpfMatches = matchesCpfHmac(rescuer_cpf, eligibility.cpf_hmac, eligibility.cpf_key_version);
+      } catch {
+        throw Object.assign(new Error('ELIGIBILITY_UNAVAILABLE'), { code: 'ELIGIBILITY_UNAVAILABLE' });
+      }
+      if (!cpfMatches) {
+        return { status: 400, body: { error: 'O CPF deve ser o mesmo informado na declaração de maioridade.', code: 'CPF_DECLARATION_MISMATCH' } };
+      }
+      // A declaração continua invisível até o commit. Falhas de migração/permissão
+      // são detectadas antes do upload; qualquer falha posterior também a desfaz.
+      try {
+        await tx.query(`INSERT INTO petgo_private.rescue_declarations
+          (animal_id, user_id, rescuer_name, rescuer_contact, rescuer_email, terms_version)
+          VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, userId, rescuer_name, rescuer_contact, rescuer_email, RESCUE_TERMS_VERSION]);
+      } catch {
+        throw Object.assign(new Error('ELIGIBILITY_UNAVAILABLE'), { code: 'ELIGIBILITY_UNAVAILABLE' });
+      }
       const multiplier = Number(user.plan_tier) === 3 ? 3 : Number(user.plan_tier) === 2 ? 2 : 1;
       const earnedCoins = 50 * multiplier;
       // Upload só após obter o lock e verificar disponibilidade. Storage não faz parte do SQL:
@@ -194,6 +255,9 @@ router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, asyn
     });
     res.status(result.status).json(result.body);
   } catch (error) {
+    if (error.code === 'ELIGIBILITY_UNAVAILABLE') {
+      return res.status(503).json({ error: 'Não foi possível validar a declaração de responsabilidade. Tente novamente.', code: 'ELIGIBILITY_UNAVAILABLE' });
+    }
     console.error('Erro na transação de resgate:', { code: error.code || 'RESCUE_FAILED' });
     res.status(500).json({ error: 'Não foi possível confirmar o resgate e sua recompensa. Atualize a lista e tente novamente.' });
   }

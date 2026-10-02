@@ -6,9 +6,25 @@ function subscriptionTransaction({ user, state, options = {}, record = () => {} 
   return work => {
     const job = queue.then(async () => {
       if (options.writeError) throw options.writeError;
-      const copy = structuredClone({ user: { ...user, coins: state.coins }, events: state.events, baselines: state.baselines });
+      const copy = structuredClone({ user: { ...user, coins: state.coins }, events: state.events,
+        baselines: state.baselines, eligibility: state.eligibility });
       const result = await work({ async query(sql, params) {
         record('tx', { sql, params });
+        if (sql.includes('FROM petgo_private.user_eligibility')) {
+          if (options.eligibilityError) throw options.eligibilityError;
+          return { rows: copy.eligibility ? [{ ...copy.eligibility }] : [] };
+        }
+        if (sql.includes('INSERT INTO petgo_private.user_eligibility')) {
+          if (options.eligibilityWriteError) throw options.eligibilityWriteError;
+          if (copy.eligibility && sql.includes('ON CONFLICT')) return { rows: [] };
+          copy.eligibility = { user_id: params[0], cpf_hmac: params[1], cpf_key_version: params[2],
+            status: params[3], method: params[4], assessed_at: params[5], terms_version: params[6] };
+          return { rows: [{ ...copy.eligibility }] };
+        }
+        if (/INSERT INTO (?:public\.)?users/.test(sql)) {
+          if (options.profileInsertError) throw options.profileInsertError;
+          return { rows: [{ id: copy.user.id }] };
+        }
         if (sql.startsWith('SELECT starts_at')) return { rows: [{ starts_at: options.rollout || '2000-01-01T00:00:00Z' }] };
         if (sql.includes('FOR UPDATE')) return { rows: options.missingUser ? [] : [{ ...copy.user }] };
         if (sql.startsWith('SELECT * FROM petgo_private.subscription_events WHERE event_key')) {
@@ -50,6 +66,7 @@ function subscriptionTransaction({ user, state, options = {}, record = () => {} 
       state.coins = copy.user.coins;
       state.events = copy.events;
       state.baselines = copy.baselines;
+      state.eligibility = copy.eligibility;
       return result;
     });
     queue = job.catch(() => {});

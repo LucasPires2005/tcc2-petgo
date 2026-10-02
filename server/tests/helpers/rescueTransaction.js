@@ -4,9 +4,23 @@ function rescueTransaction({ user, state, options, record }) {
   return work => {
     const job = queue.then(async () => {
       if (options.writeError) throw options.writeError;
-      const copy = { ...state, creationEvents: [...(state.creationEvents || options.creationEvents || [])] };
+      const copy = { ...state, creationEvents: [...(state.creationEvents || options.creationEvents || [])],
+        rescueDeclarations: [...(state.rescueDeclarations || [])] };
       const result = await work({ async query(sql, params) {
         record('tx', { sql, params });
+        if (sql.includes('FROM petgo_private.user_eligibility')) {
+          if (options.eligibilityError) throw options.eligibilityError;
+          return { rows: copy.eligibility ? [{ ...copy.eligibility }] : [] };
+        }
+        if (sql.includes('INSERT INTO petgo_private.rescue_declarations')) {
+          if (options.rescueDeclarationError) throw options.rescueDeclarationError;
+          if (copy.rescueDeclarations.some(declaration => String(declaration.animal_id) === String(params[0]))) {
+            throw Object.assign(new Error('duplicate declaration'), { code: '23505' });
+          }
+          copy.rescueDeclarations.push({ animal_id: params[0], user_id: params[1], rescuer_name: params[2],
+            rescuer_contact: params[3], rescuer_email: params[4], terms_version: params[5] });
+          return { rows: [] };
+        }
         if (sql.includes('pg_advisory_xact_lock')) {
           if (options.limitError) throw options.limitError;
           return { rows: [] };

@@ -9,6 +9,7 @@ const middleware = require('../../middleware/requireMobileUser');
 
 // Somente processos de teste importam este arquivo. Não carrega .env nem db.js.
 process.env.MOBILE_JWT_SECRET = 'petgo-phase1-test-only-secret-at-least-32-bytes';
+process.env.CPF_HMAC_SECRET = Buffer.alloc(32, 37).toString('base64');
 
 async function routeFixture(t, route = 'auth', options = {}) {
   assert.ok(['auth', 'animals'].includes(route));
@@ -16,7 +17,11 @@ async function routeFixture(t, route = 'auth', options = {}) {
   const user = { id: 7, name: 'Teste', email: 'test@example.test', password: 'secret123',
     auth_user_id: 'auth-test-7', email_confirmed: false, coins: 100, plan_tier: 2,
     ...options.user };
-  const state = { coins: user.coins, rescued: false };
+  const state = { coins: user.coins, rescued: false, rescueDeclarations: [], eligibility: options.missingEligibility || options.eligibility === null ? null : {
+    user_id: user.id, cpf_hmac: require('../../services/eligibilityValidation').createCpfHmac(options.eligibilityCpf || '52998224725'),
+    cpf_key_version: 'v1', status: 'DECLARED_ADULT', method: 'LOCAL_DECLARATION',
+    assessed_at: '2026-01-01T12:00:00Z', terms_version: 'v1', ...options.eligibility
+  } };
   const record = (kind, details = {}) => calls.push({ kind, ...details });
   const db = {
     transaction: route === 'animals'
@@ -24,6 +29,13 @@ async function routeFixture(t, route = 'auth', options = {}) {
       : require('./subscriptionTransaction').subscriptionTransaction({ user, state, options, record }),
     get(sql, params, cb) {
       record('get', { sql, params });
+      if (sql.includes('petgo_private.user_eligibility')) {
+        if (options.eligibilityError) return cb(options.eligibilityError);
+        return cb(null, sql.includes('WHERE false') || sql.includes('WHERE FALSE') ? null : state.eligibility);
+      }
+      if (sql === 'SELECT id FROM users WHERE auth_user_id = ?') {
+        return cb(options.compensationLookupError, options.compensationLinkedUser ? { id: user.id } : null);
+      }
       if (sql.includes('DELETE FROM public.animals')) {
         if (options.authorDeleteError) return cb(options.authorDeleteError);
         if (state.authorDeleted || options.missingAnimal || String(params[0]) !== '42'
@@ -99,7 +111,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     },
     admin: {
       async updateUserById(id, args) { record('updateAuth', { id, ...args }); return { error: options.updateError }; },
-      async deleteUser(id) { record('deleteAuth', { id }); return {}; }
+      async deleteUser(id) { record('deleteAuth', { id }); return { error: options.deleteAuthError }; }
     }
   };
   const mocks = {
@@ -109,6 +121,8 @@ async function routeFixture(t, route = 'auth', options = {}) {
     '../services/checkout': require('../../services/checkout'),
     '../services/subscriptions': require('../../services/subscriptions'),
     '../services/credentialValidation': require('../../services/credentialValidation'),
+    '../services/eligibility': require('../../services/eligibility'),
+    '../services/eligibilityValidation': require('../../services/eligibilityValidation'),
     '../services/animalCreationLimit': require('../../services/animalCreationLimit'),
     './animalAuthorDeletion': require('../../routes/animalAuthorDeletion'),
     '../services/emailConfirmationSettings': { async requireEmailConfirmation() {
@@ -198,7 +212,8 @@ async function routeFixture(t, route = 'auth', options = {}) {
 function animalForm(field = 'image') {
   const form = new FormData();
   for (const [key, value] of Object.entries({ name: 'Teste', species: 'Gato', latitude: '-15.6',
-    longitude: '-56.1', userId: '99', rescuer_name: 'Teste', rescuer_contact: 'teste' })) form.append(key, value);
+    longitude: '-56.1', userId: '99', rescuer_name: 'Teste', rescuer_contact: '11999999999',
+    rescuer_email: 'test@example.test', rescuer_cpf: '52998224725', acceptedResponsibility: 'true' })) form.append(key, value);
   // Bytes sintéticos: estes testes verificam multipart, não o classificador externo.
   form.append(field, new Blob(['test-image'], { type: 'image/png' }), 'test.png');
   return form;
