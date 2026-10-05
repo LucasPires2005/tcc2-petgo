@@ -63,8 +63,8 @@ export async function fetchAdminRecords(kind, accessToken, filters, signal) {
   return { ...data, rows };
 }
 
-export async function fetchAdminIdentity(accessToken) {
-  const data = await adminGet('/me', accessToken);
+export async function fetchAdminIdentity(accessToken, signal) {
+  const data = await adminGet('/me', accessToken, signal);
   if (!data.admin?.id) throw new Error('O servidor não retornou uma autorização válida.');
   return data.admin;
 }

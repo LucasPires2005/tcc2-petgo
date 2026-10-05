@@ -142,7 +142,6 @@ export default function UsersPage() {
           </div>
         </nav>
       </>}
-      <p className="admin-note">O plano exibido não confirma pagamento. Banir bloqueia o acesso sem excluir dados. Excluir conta remove o perfil e o acesso definitivamente, preservando os animais no mapa. Contas ADM são protegidas.</p>
       {selectedUser && <ActionReasonModal
         title={selectedUser.banned ? 'Motivo do Desbanimento' : 'Motivo do Banimento'}
         description={`${selectedUser.banned ? 'Desbanir' : 'Banir'} ${selectedUser.name || selectedUser.email} (ID ${selectedUser.id})?\nAs sessões anteriores serão revogadas. Não exclui contas, animais ou moedas.`}
