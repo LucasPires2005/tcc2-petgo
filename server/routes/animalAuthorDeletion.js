@@ -1,10 +1,11 @@
 const express = require('express');
 const { cleanupAnimalPhotos } = require('../services/animalStorageCleanup');
+const profanityFilter = require('../middlewares/profanityFilter');
 
 // Montado somente depois do middleware de sessão mobile.
 function createAnimalAuthorDeletionRouter({ db, storage, supabaseUrl }) {
   const router = express.Router();
-  router.delete('/:id', async (req, res) => {
+  router.delete('/:id', profanityFilter, async (req, res) => {
     const { id } = req.params;
     const reason = req.body?.reason;
     if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))

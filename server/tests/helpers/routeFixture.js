@@ -118,6 +118,7 @@ async function routeFixture(t, route = 'auth', options = {}) {
     express, multer, '../db': db,
     '../services/mobileSession': session,
     '../middleware/requireMobileUser': middleware,
+    '../middlewares/profanityFilter': require('../../middlewares/profanityFilter'),
     '../services/checkout': require('../../services/checkout'),
     '../services/subscriptions': require('../../services/subscriptions'),
     '../services/credentialValidation': require('../../services/credentialValidation'),

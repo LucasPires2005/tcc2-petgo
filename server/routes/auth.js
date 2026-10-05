@@ -10,6 +10,7 @@ const { normalizeCheckout, referenceIdentity, publicBaseUrl } = require('../serv
 const { PROFILE_COLUMNS, effectiveTierSql, profileWithValidity, operationKey, activateSubscription, activatePayment, cancelSubscription } = require('../services/subscriptions');
 const { prepareEligibility, readEligibility, persistEligibility, eligibilityFailure } = require('../services/eligibility');
 const { createSocialHandlers } = require('../services/socialAuth');
+const profanityFilter = require('../middlewares/profanityFilter');
 
 const publicPaths = new Set(['/login', '/register', '/social-login', '/social-complete', '/resend-confirmation', '/request-password-reset', '/reset-password', '/webhook', '/payment-success', '/payment-failure', '/payment-pending']);
 const requireMobileUser = createRequireMobileUser({ db });
@@ -44,7 +45,7 @@ const PASSWORD_RESET_REDIRECT_URL = 'petgo://auth/reset-password';
 // Public only with respect to PetGo JWT: both handlers authenticate the Supabase credential.
 const socialHandlers = createSocialHandlers({ db, supabase });
 router.post('/social-login', socialHandlers.login);
-router.post('/social-complete', socialHandlers.complete);
+router.post('/social-complete', profanityFilter, socialHandlers.complete);
 
 // Helpers para utilizar o adaptador atual do banco com async/await
 function getOne(sql, params = []) {
@@ -125,7 +126,7 @@ router.post('/add-coins', async (req, res) => {
   }
 });
 
-router.post('/buy-product', async (req, res) => {
+router.post('/buy-product', profanityFilter, async (req, res) => {
   const { userId, cost, productName } = req.body;
   if (!validCoins(cost)) return res.status(400).json({ error: 'Informe um custo inteiro e positivo de PetCoins.' });
   try {
@@ -308,7 +309,7 @@ router.post('/eligibility', async (req, res) => {
   } catch (error) { eligibilityFailure(res, error); }
 });
 
-router.put('/update', async (req, res) => {
+router.put('/update', profanityFilter, async (req, res) => {
   const { id, name } = req.body;
   const email = normalizeEmail(req.body.email);
 
@@ -485,7 +486,7 @@ router.delete('/delete/:id', async (req, res) => {
 // CADASTRO COM CONFIRMAÇÃO DE E-MAIL
 // ==========================================
 
-router.post('/register', async (req, res) => {
+router.post('/register', profanityFilter, async (req, res) => {
   const { name, password } = req.body;
   const email = normalizeEmail(req.body.email);
 
@@ -770,7 +771,7 @@ router.post('/reset-password', async (req, res) => {
 // INTEGRACAO MERCADO PAGO + WEBHOOK
 // ==========================================
 
-router.post('/create-preference', async (req, res) => {
+router.post('/create-preference', profanityFilter, async (req, res) => {
   try {
     const intent = normalizeCheckout(req.body, req.mobileUser.id);
     const baseUrl = publicBaseUrl(process.env);

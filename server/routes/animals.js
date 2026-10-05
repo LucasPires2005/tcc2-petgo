@@ -7,6 +7,7 @@ const { moderateImage } = require('../services/imageModeration');
 const { reserveAnimalCreation, releaseAnimalCreation } = require('../services/animalCreationLimit');
 const { createAnimalAuthorDeletionRouter } = require('./animalAuthorDeletion');
 const { createRequireMobileUser, bindAnimalActor } = require('../middleware/requireMobileUser');
+const profanityFilter = require('../middlewares/profanityFilter');
 const { normalizeEmail, isValidEmail } = require('../services/credentialValidation');
 const { isValidCpf, matchesCpfHmac, CPF_KEY_VERSION, ELIGIBILITY_STATUS } = require('../services/eligibilityValidation');
 const RESCUE_TERMS_VERSION = '2026-10-02-v1';
@@ -100,7 +101,7 @@ router.get('/', (req, res) => {
 });
 
 // CADASTRO DE ANIMAL
-router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
+router.post('/', upload.single('image'), bindAnimalActor, profanityFilter, async (req, res) => {
   const { name, species, breed, health, latitude, longitude, userId, urgency } = req.body;
   let reservation;
   try {
@@ -158,7 +159,7 @@ router.post('/', upload.single('image'), bindAnimalActor, async (req, res) => {
 });
 
 // Status do animal e recompensa são confirmados na mesma conexão/transação.
-router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, async (req, res) => {
+router.patch('/:id/rescue', upload.single('rescue_image'), bindAnimalActor, profanityFilter, async (req, res) => {
   const { id } = req.params;
   const { rescuer_cpf, acceptedResponsibility } = req.body;
   const rescuer_name = typeof req.body.rescuer_name === 'string' ? req.body.rescuer_name.trim() : '';

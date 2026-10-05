@@ -4,10 +4,12 @@ const { effectiveTierSql } = require('../services/subscriptions');
 const { createAdminRecordsRouter, reasonFrom } = require('./adminRecords');
 const { createAdminUserDeletionRouter } = require('./adminUserDeletion');
 const { cleanupAnimalPhotos } = require('../services/animalStorageCleanup');
+const profanityFilter = require('../middlewares/profanityFilter');
 
 function createAdminRouter({ auth, db, storage, supabaseUrl = process.env.SUPABASE_URL, env = process.env }) {
   const router = express.Router();
   router.use(createRequireAdmin({ auth, db }));
+  router.use(profanityFilter);
   router.use(createAdminRecordsRouter({ db, supabaseUrl }));
   router.use(createAdminUserDeletionRouter({ auth, db }));
 
