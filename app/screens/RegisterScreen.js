@@ -22,6 +22,7 @@ import FormField, { FormNotice } from '../components/FormField';
 import { Ionicons } from '@expo/vector-icons';
 import EligibilityFields from '../components/EligibilityFields';
 import { birthDateToIso, declarationError } from '../services/eligibilityApi';
+import legalDocuments from '../content/legalDocuments.json';
 
 export default function RegisterScreen({ navigation }) {
   const headerHeight = useHeaderHeight();
@@ -32,6 +33,8 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
+  const [selectedLegalDocument, setSelectedLegalDocument] = useState('terms');
+  const selectedDocument = legalDocuments[selectedLegalDocument];
   const [cpf, setCpf] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [acceptedDeclaration, setAcceptedDeclaration] = useState(false);
@@ -227,7 +230,26 @@ export default function RegisterScreen({ navigation }) {
         <EligibilityFields cpf={cpf} setCpf={setCpf} birthDate={birthDate} setBirthDate={setBirthDate}
           accepted={acceptedDeclaration} setAccepted={setAcceptedDeclaration} disabled={isLoading} />
 
-        {/* RECUPERADO: Checkbox de Termos */}
+        <View style={styles.legalLinks}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Ler Termos de Uso"
+            style={styles.legalLinkButton}
+            onPress={() => { setSelectedLegalDocument('terms'); setTermsVisible(true); }}
+          >
+            <Text style={styles.linkTerms}>Termos de Uso</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Ler Política de Privacidade"
+            style={styles.legalLinkButton}
+            onPress={() => { setSelectedLegalDocument('privacy'); setTermsVisible(true); }}
+          >
+            <Text style={styles.linkTerms}>Política de Privacidade</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Aceite dos Termos; a Política tem acesso independente. */}
         <View style={styles.checkboxContainer}>
           <TouchableOpacity
             accessibilityRole="checkbox"
@@ -244,13 +266,7 @@ export default function RegisterScreen({ navigation }) {
             />
           </TouchableOpacity>
           <Text style={styles.checkboxText}>
-            Li e concordo com os{' '}
-            <Text
-              style={styles.linkTerms}
-              onPress={() => setTermsVisible(true)}
-            >
-              Termos de Uso *
-            </Text>
+            Li e concordo com os Termos de Uso *
           </Text>
         </View>
 
@@ -272,7 +288,7 @@ export default function RegisterScreen({ navigation }) {
           <Text style={styles.linkText}>Já tenho conta</Text>
         </TouchableOpacity>
 
-        {/* Modal de Termos */}
+        {/* Leitor independente de cada documento legal. */}
         <Modal
           visible={termsVisible}
           animationType="slide"
@@ -280,40 +296,48 @@ export default function RegisterScreen({ navigation }) {
         >
           <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Termos de Uso</Text>
-              <TouchableOpacity onPress={() => setTermsVisible(false)}>
+              <Text style={styles.modalTitle} accessibilityRole="header">{selectedDocument.title}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar documento" onPress={() => setTermsVisible(false)}>
                 <Ionicons name="close-circle" size={30} color={colors.text} />
               </TouchableOpacity>
             </View>
             <ScrollView
+              key={selectedLegalDocument}
               contentContainerStyle={styles.termsContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.termsText}>
-                <Text style={styles.termsBold}>1. Objetivo da Plataforma{'\n'}</Text>
-                O PetGo é uma ferramenta tecnológica comunitária cujo único objetivo é facilitar o encontro, registro e resgate de animais em situação de vulnerabilidade. A plataforma atua apenas como uma ponte de comunicação entre voluntários.{'\n\n'}
-
-                <Text style={styles.termsBold}>2. Responsabilidade do Usuário{'\n'}</Text>
-                Ao criar um registro ou validar um resgate, você se compromete a fornecer informações e fotografias reais e precisas. É estritamente proibido o uso da plataforma para realizar falsos alertas, brincadeiras de mau gosto ou qualquer ação que coloque a integridade dos animais ou de outros usuários em risco.{'\n\n'}
-
-                <Text style={styles.termsBold}>3. Isenção de Responsabilidade Civil{'\n'}</Text>
-                O PetGo não se responsabiliza por interações físicas, resgates mal sucedidos, ou atitudes de terceiros fora do ambiente digital. Todo resgate deve ser feito com cautela e, de preferência, com o apoio de profissionais ou ONGs capacitadas.{'\n\n'}
-
-                <Text style={styles.termsBold}>4. Segurança, Rastreabilidade e Punições{'\n'}</Text>
-                Visando a proteção da nossa comunidade e dos animais, o PetGo mantém registros (logs) das atividades realizadas na plataforma. O uso de má-fé, falsidade ideológica ou a inserção de dados falsos que resultem em danos aos animais resultará no banimento imediato da conta. O PetGo reserva-se o direito de cooperar integralmente com as autoridades competentes, fornecendo dados de rastreabilidade em caso de denúncias de maus-tratos ou crimes cibernéticos.{'\n\n'}
-
-                <Text style={styles.termsBold}>5. Aceite{'\n'}</Text>
-                Ao marcar a caixa de seleção e efetuar o cadastro, o usuário declara ter lido, compreendido e concordado expressamente com todos os termos descritos acima.
+              <Text style={styles.legalMetadata}>
+                {legalDocuments.status}{'\n'}
+                Versão {legalDocuments.version} · {legalDocuments.updatedAt}{'\n'}
+                {legalDocuments.controller}{'\n'}
+                Atendimento e privacidade: {legalDocuments.supportEmail}
               </Text>
-              <TouchableOpacity
-                style={styles.termsButton}
-                onPress={() => {
-                  setAgreed(true);
-                  setTermsVisible(false);
-                }}
-              >
-                <Text style={styles.termsButtonText}>Concordar e Fechar</Text>
-              </TouchableOpacity>
+              {selectedDocument.sections.map(section => (
+                <View key={section.title} style={styles.legalSection}>
+                  <Text style={styles.termsBold} accessibilityRole="header">{section.title}</Text>
+                  <Text style={styles.termsText}>{section.text}</Text>
+                </View>
+              ))}
+              {selectedLegalDocument === 'terms' ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.termsButton}
+                  onPress={() => {
+                    setAgreed(true);
+                    setTermsVisible(false);
+                  }}
+                >
+                  <Text style={styles.termsButtonText}>Concordar com os Termos e fechar</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.termsButton}
+                  onPress={() => setTermsVisible(false)}
+                >
+                  <Text style={styles.termsButtonText}>Fechar Política de Privacidade</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </SafeAreaView>
         </Modal>
@@ -404,6 +428,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
+  legalLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  legalLinkButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -413,6 +451,8 @@ const styles = StyleSheet.create({
     borderColor: '#EEE',
   },
   modalTitle: {
+    flex: 1,
+    marginRight: 12,
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.primary,
@@ -421,6 +461,15 @@ const styles = StyleSheet.create({
     padding: 25,
     paddingBottom: 48,
   },
+  legalMetadata: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  legalSection: {
+    marginBottom: 24,
+  },
   termsText: {
     fontSize: 15,
     color: colors.text,
@@ -428,6 +477,7 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
   },
   termsBold: {
+    marginBottom: 8,
     fontWeight: 'bold',
     fontSize: 16,
     color: colors.text,

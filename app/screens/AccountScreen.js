@@ -331,7 +331,7 @@ export default function AccountScreen({ navigation }) {
           >
             <Ionicons name="card" size={24} color={colors.background} />
             <View style={{flex: 1, marginLeft: 15}}>
-              <Text style={styles.upgradeTitle}>Planos de Assinatura</Text>
+              <Text style={styles.upgradeTitle}>Contribuições ao PetGo</Text>
               <Text style={styles.upgradeSubtitle}>Conheça os benefícios e apoie a causa</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.background} />

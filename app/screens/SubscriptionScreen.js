@@ -25,9 +25,9 @@ export default function SubscriptionScreen({ navigation }) {
       icon: 'paw',
       benefits: [
         'Multiplicador 1x PetCoins',
-        'Apadrinhamento de 1 animal',
-        'Impacto: Ração mensal',
-        'Acompanhamento de status'
+        'Vigência de 30 dias',
+        'Sem renovação automática',
+        'Selo Amigo no perfil'
       ]
     },
     {
@@ -39,8 +39,8 @@ export default function SubscriptionScreen({ navigation }) {
       icon: 'shield-checkmark',
       benefits: [
         'Multiplicador 2x PetCoins',
-        '1 animal + atualizações semanais',
-        'Impacto: Ração + Vacina',
+        'Vigência de 30 dias',
+        'Sem renovação automática',
         'Selo Protetor no Perfil'
       ]
     },
@@ -53,8 +53,8 @@ export default function SubscriptionScreen({ navigation }) {
       icon: 'diamond',
       benefits: [
         'Multiplicador 3x PetCoins',
-        'Contato direto com a ONG',
-        'Impacto: Ração + Vacina + Consulta',
+        'Vigência de 30 dias',
+        'Sem renovação automática',
         'Selo Guardião VIP no Perfil'
       ]
     }
@@ -95,15 +95,16 @@ export default function SubscriptionScreen({ navigation }) {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Planos de Assinatura</Text>
+        <Text style={styles.headerTitle}>Contribuições de apoio</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.introSection}>
-          <Text style={styles.introTitle}>Seja o Herói que eles precisam 🐾</Text>
+          <Text style={styles.introTitle}>Apoie o propósito do PetGo 🐾</Text>
           <Text style={styles.introDesc}>
-            Escolha o plano que melhor se adapta a você e amplie seu impacto no resgate e cuidado de animais abandonados.
+            Amigo, Protetor e Guardião são modalidades de contribuição com benefícios por 30 dias.
+            {'\n\n'}Demonstração acadêmica: pagamentos em Sandbox, sem cobrança real ou repasse a animais e ONGs.
           </Text>
         </View>
 
