@@ -12,6 +12,8 @@ import {
   ScrollView,
   Image
 } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
+import { SafeAreaView as ScreenSafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
 import FormField, { FormNotice } from '../components/FormField';
@@ -19,6 +21,7 @@ import { colors } from '../theme/colors';
 import { GOOGLE_SOCIAL_ENABLED, cancelSocialLogin } from '../services/socialAuth';
 
 export default function LoginScreen({ navigation }) {
+  const headerHeight = useHeaderHeight();
   const { login, requestPasswordReset, loginWithGoogle } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -99,9 +102,12 @@ export default function LoginScreen({ navigation }) {
     <>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={headerHeight}
         style={styles.container}
       >
+        <ScreenSafeAreaView edges={['bottom']} style={styles.container}>
         <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.inner}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -171,6 +177,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.buttonSecondaryText}>Não tem conta? Cadastre-se</Text>
           </TouchableOpacity>
         </ScrollView>
+        </ScreenSafeAreaView>
       </KeyboardAvoidingView>
 
       {/* Modal de "Esqueci Senha" */}
@@ -247,12 +254,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollView: {
+    flex: 1,
+  },
   inner: {
     flexGrow: 1,
+    flexShrink: 0,
     paddingHorizontal: 30,
     paddingTop: 20,
-    paddingBottom: 24,
-    justifyContent: 'center',
+    paddingBottom: 48,
+    justifyContent: 'flex-start',
     alignItems: 'stretch',
   },
   logo: {

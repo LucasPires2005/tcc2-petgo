@@ -14,6 +14,8 @@ import {
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
+import { SafeAreaView as ScreenSafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
 import FormField, { FormNotice } from '../components/FormField';
@@ -22,6 +24,7 @@ import EligibilityFields from '../components/EligibilityFields';
 import { birthDateToIso, declarationError } from '../services/eligibilityApi';
 
 export default function RegisterScreen({ navigation }) {
+  const headerHeight = useHeaderHeight();
   const { register, resendConfirmationEmail } = useContext(AuthContext);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -111,9 +114,12 @@ export default function RegisterScreen({ navigation }) {
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={headerHeight}
         style={styles.container}
       >
+        <ScreenSafeAreaView edges={['bottom']} style={styles.container}>
         <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -150,6 +156,7 @@ export default function RegisterScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </ScrollView>
+        </ScreenSafeAreaView>
       </KeyboardAvoidingView>
     );
   }
@@ -158,9 +165,12 @@ export default function RegisterScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
       style={styles.container}
     >
+      <ScreenSafeAreaView edges={['bottom']} style={styles.container}>
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -308,6 +318,7 @@ export default function RegisterScreen({ navigation }) {
           </SafeAreaView>
         </Modal>
       </ScrollView>
+      </ScreenSafeAreaView>
     </KeyboardAvoidingView>
   );
 }
@@ -317,11 +328,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
+    flexShrink: 0,
     padding: 30,
     paddingBottom: 48,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   title: {
     fontSize: 28,
