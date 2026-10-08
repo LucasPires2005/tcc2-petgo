@@ -17,7 +17,8 @@ import {
   Share, 
   TouchableWithoutFeedback,
   ActivityIndicator,
-  Keyboard
+  Keyboard,
+  AppState
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,7 +28,7 @@ import { AuthContext } from '../context/AuthContext';
 import { getBestAvailableLocation } from '../services/location';
 import PetMap from '../components/PetMap';
 import PhotoSourceOptions from '../components/PhotoSourceOptions';
-import { selectAnimalPhoto } from '../services/photoSelection';
+import { selectAnimalPhoto, waitForPhotoPickerReady } from '../services/photoSelection';
 import AnimalDeletionForm from '../components/AnimalDeletionForm';
 import FormField, { FormNotice, FieldLabel } from '../components/FormField';
 import { isAnimalAuthor } from '../services/animalDeletion';
@@ -221,9 +222,15 @@ export default function MapScreen({ navigation }) {
     if (photoBusy.current || isUploadingAnimal || isUploadingRescue) return;
     photoBusy.current = true;
     const request = ++photoRequest.current;
+    const isCurrent = () => request === photoRequest.current;
+    Keyboard.dismiss();
     setPhotoSourceTarget(null);
     try {
-      const asset = await selectAnimalPhoto(ImagePicker, source);
+      const asset = await selectAnimalPhoto(ImagePicker, source, {
+        platform: Platform.OS,
+        isCurrent,
+        beforeLaunch: () => waitForPhotoPickerReady(AppState, isCurrent),
+      });
       if (asset && request === photoRequest.current) {
         if (target === 'rescue') setRescueImage(asset);
         else setImage(asset);

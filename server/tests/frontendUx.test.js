@@ -52,6 +52,7 @@ function mapFixture(selectPhoto, uploading = false) {
   const controller = vm.runInNewContext(`${source.slice(start, end)}; ({ closeAnimalForm, closeRescueForm, choosePhoto, openPhotoOptions });`, {
     isUploadingAnimal: uploading, isUploadingRescue: uploading,
     photoRequest: { current: 0 }, photoBusy: { current: false }, ImagePicker: {}, selectAnimalPhoto: selectPhoto,
+    Platform: { OS: 'android' }, AppState: { currentState: 'active' }, waitForPhotoPickerReady: async () => true,
     setPhotoSourceTarget: value => { state.menu = value; },
     setModalVisible: value => { state.modal = value; }, setSelectedLocation: value => { state.location = value; },
     setRescueModalVisible: value => { state.rescueModal = value; },
