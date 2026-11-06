@@ -438,10 +438,7 @@ router.put('/change-password', async (req, res) => {
       });
     }
 
-    await runQuery(
-      'UPDATE users SET password = ? WHERE id = ?',
-      [newPassword, id]
-    );
+    // Contas com auth_user_id usam Supabase Auth: não salvar senha local.
 
     res.json({ message: 'Alterada!' });
   } catch (error) {
@@ -556,14 +553,15 @@ router.post('/register', profanityFilter, async (req, res) => {
 
     try {
       await db.transaction(async tx => {
+        // Contas novas usam Supabase Auth: não salvar senha local (NULL).
         const localUser = (await tx.query(`INSERT INTO public.users (
           name,
           email,
           password,
           email_confirmed,
           auth_user_id
-        ) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [name, email, password, false, data.user.id]
+        ) VALUES ($1, $2, NULL, $3, $4) RETURNING id`,
+        [name, email, false, data.user.id]
         )).rows[0];
         if (!localUser) throw new Error('REGISTER_LOCAL_USER_MISSING');
         await persistEligibility(tx, localUser.id, assessment);
@@ -751,9 +749,10 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
+    // Contas com auth_user_id usam Supabase Auth: não salvar senha local.
     await runQuery(
-      'UPDATE users SET password = ?, email_confirmed = true WHERE id = ?',
-      [newPassword, localUser.id]
+      'UPDATE users SET email_confirmed = true WHERE id = ?',
+      [localUser.id]
     );
 
     res.json({
